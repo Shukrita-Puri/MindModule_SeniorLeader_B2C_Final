@@ -1087,6 +1087,9 @@ interface NudgeContext {
   hrvDeltaPctFromSnapshot: number | null;
   // v7 - Unified pattern store (cross-event historical correlations)
   pattern: PatternSummary | null;
+  /** MRS readiness snapshot (optional context only — never gates a send). */
+  readinessState?: string | null;
+  readinessScore?: number | null;
   // V8 - Day-shape awareness (copy only). Travel/away-day and post-travel.
   // C2 (Path B, pre-launch): legacy 'ooo' kind folded into 'away-day' — the
   // canonical PTO SSOT (PTO_TITLE_RX) already matches OOO titles, and both
@@ -2929,6 +2932,62 @@ function containsFabricatedWearableData(
   return FABRICATION_PATTERNS.some((pattern) => pattern.test(body));
 }
 
+/**
+ * Optional "immediate context" prompt block — wearable signals, MRS readiness
+ * and the strongest matching pattern fact for the anchor event.
+ *
+ * Contract: OFFERED context only. Never a requirement, never a new validation
+ * rule. Returns "" when nothing factual is known, in which case the prompt is
+ * byte-identical to today's. Nothing here is ever invented.
+ */
+export function buildImmediateContextBlock(
+  ctx: NudgeContext,
+  anchorTitle: string | null,
+): string {
+  const lines: string[] = [];
+
+  if (ctx.hasWearableData) {
+    const w = ctx.wearable;
+    if (typeof w.hrvDeltaPct === "number") {
+      const dir = w.hrvDeltaPct < 0 ? "below" : "above";
+      lines.push(
+        `HRV is ${Math.abs(Math.round(w.hrvDeltaPct))}% ${dir} their 30-day normal range.`,
+      );
+    }
+    if (w.rhrElevated) lines.push(`Resting heart rate is elevated today.`);
+    if (typeof w.totalSleepMinutes === "number") {
+      lines.push(`Slept ${(w.totalSleepMinutes / 60).toFixed(1)}h last night.`);
+    }
+  }
+
+  if (ctx.readinessState) {
+    lines.push(
+      typeof ctx.readinessScore === "number"
+        ? `Readiness state: ${ctx.readinessState} (${
+          Math.round(ctx.readinessScore)
+        }).`
+        : `Readiness state: ${ctx.readinessState}.`,
+    );
+  }
+
+  try {
+    const hit = findEventPattern(ctx.pattern, anchorTitle);
+    if (hit && hit.n >= 2) {
+      const dir = hit.hrvDeltaPct < 0 ? "drops" : "rises";
+      lines.push(
+        `Pattern (${hit.confidence}, n=${hit.n}): across their last ${hit.n} events like this, HRV ${dir} ${
+          Math.abs(Math.round(hit.hrvDeltaPct))
+        }%${hit.rhrElevated ? " with heart rate elevated" : ""}.`,
+      );
+    }
+  } catch { /* pattern store optional */ }
+
+  if (lines.length === 0) return "";
+  return `\n\n=== IMMEDIATE CONTEXT (optional — use only if it makes the notification more specific; never invent, never required) ===\n${
+    lines.join("\n")
+  }`;
+}
+
 async function generateNudgeCopy(
   ctx: NudgeContext,
   nudgeType: string,
@@ -3114,14 +3173,23 @@ Say "practices" not "priorities". Never reference "Priority 1".`;
     case 'nudge_two_recalibrate': {
       const eventTitle = truncateEventTitle(specificSignals.eventTitle as string);
       const sharedEventFrameLine = buildSharedEventFrameLine(specificSignals.eventTitle as string);
+      const phaseInfo = resolveCtxEventPhase(ctx, specificSignals.eventTitle as string);
+      const phaseLine = phaseInfo?.clause
+        ? `\nPhase-correct wording (this event is ${phaseInfo.phase}): ${phaseInfo.clause}`
+        : '';
+      const provenanceLines = buildStateProvenanceLines(ctx);
       userPrompt = `State-aware recalibration. User started low; heavy afternoon ahead.
 
 Available signals:
 - Morning check-in: ${ctx.morningCheckinOutcome}
-- Next event: "${eventTitle}"
-${sharedEventFrameLine}
+- Anchor event: "${eventTitle}"
+${sharedEventFrameLine}${phaseLine}${provenanceLines ? `\n${provenanceLines}` : ''}
 
-Required: name the morning state AND the event in a meaning sentence (e.g. "Your morning state was low and ${eventTitle} is next - this is the recovery window").
+Required: name the event in a meaning sentence${
+        ctx.morningCheckinOutcome
+          ? ` together with the morning state (e.g. "Your morning state was low and ${eventTitle} is next - this is the recovery window")`
+          : ` (do not claim a morning state — none was recorded)`
+      }.
 Required CTA verb at end of body: "check in to recalibrate".`;
       break;
     }
@@ -3149,8 +3217,19 @@ Required CTA verb at end of body: "log in to prep your state" or "check in to re
     }
 
     case 'nudge_three': {
-      const isWeekendEvening = ctx.isWeekend || ctx.dayOfWeek === 5;
-      const isSundayEvening = ctx.dayOfWeek === 0;
+      // Weekend framing SSOT: the FIRST weekend day always gets the
+      // recovery/light-day framing, the LAST weekend day always gets the
+      // week-ahead framing, and the day before the weekend gets the
+      // close-the-week framing. Same rule + same copy for Sat/Sun and Fri/Sat
+      // countries — only the resolved day numbers differ.
+      const firstWeekendDay = firstWeekendDayForHomeCountry(ctx.homeCountry);
+      const lastWeekendDay = lastWeekendDayForHomeCountry(ctx.homeCountry);
+      const preWeekendDay = (firstWeekendDay + 6) % 7;
+      const isFirstWeekendEvening = ctx.dayOfWeek === firstWeekendDay;
+      const isLastWeekendEvening = ctx.dayOfWeek === lastWeekendDay;
+      const isPreWeekendEvening = ctx.dayOfWeek === preWeekendDay;
+      const isWeekendEvening = ctx.isWeekend || isPreWeekendEvening;
+      void isWeekendEvening;
       const tomorrowHighStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title)).map(e => ({ ...e, title: truncateEventTitle(e.title) }));
       const tomorrowEventCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
       const sharedTomorrowFrameLine = buildSharedEventFrameLine(tomorrowHighStakes[0]?.title || null);
@@ -3173,13 +3252,13 @@ Available signals (use ONLY these):
 ${todayStakes.length > 0 ? `- High-stakes today: ${todayStakes.join(', ')}` : ''}
 - Practices: ${prioritiesCompleted}/${prioritiesTotal} done${prioritiesRemaining > 0 ? `, ${prioritiesRemaining} still open` : ''}
 ${eveningWearableLines.length > 0 ? eveningWearableLines.join('\n') : '- Wearable: not available, DO NOT mention HRV, RHR, sleep'}
-${isSundayEvening ? `- Tomorrow (Mon): ${tomorrowEventCount} meetings${tomorrowHighStakes.length > 0 ? `, incl. "${tomorrowHighStakes[0].title}"` : ''}` : ''}
+${isLastWeekendEvening ? `- Tomorrow: ${tomorrowEventCount} meetings${tomorrowHighStakes.length > 0 ? `, incl. "${tomorrowHighStakes[0].title}"` : ''}` : ''}
 ${sharedTomorrowFrameLine}
 
-${isSundayEvening ? `SUNDAY framing: name a Monday signal, prepare the user for the week. Required CTA verb at end of body: "check in to set tomorrow" (default) or "log in to prep your mind tonight" (if a high-stakes Monday event).` : ''}
-${ctx.dayOfWeek === 5 ? `FRIDAY framing: name today's load (meetings count or high-stakes) inside a meaning sentence. Required CTA verb at end of body: "check in to close the week".` : ''}
-${!isSundayEvening && ctx.dayOfWeek !== 5 && ctx.dayOfWeek !== 6 ? `Required CTA verb at end of body: "log in to recalibrate your mind" (if HRV/RHR signal) or "check in to close the day" (default).` : ''}
-${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at end of body: "check in to land the weekend".` : ''}`;
+${isLastWeekendEvening ? `WEEK-AHEAD framing: name a signal from tomorrow, prepare the user for the week. Required CTA verb at end of body: "check in to set tomorrow" (default) or "log in to prep your mind tonight" (if a high-stakes event tomorrow).` : ''}
+${isPreWeekendEvening ? `PRE-WEEKEND framing: name today's load (meetings count or high-stakes) inside a meaning sentence. Required CTA verb at end of body: "check in to close the week".` : ''}
+${!isLastWeekendEvening && !isPreWeekendEvening && !isFirstWeekendEvening ? `Required CTA verb at end of body: "log in to recalibrate your mind" (if HRV/RHR signal) or "check in to close the day" (default).` : ''}
+${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at end of body: "check in to land the weekend".` : ''}`;
       break;
     }
 
@@ -3228,27 +3307,12 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
           startTime: e.start_time,
           stakesLevel: isHighStakes(e.title) ? "external" : null,
         }));
-      // Part 1 - hydrate travel_state for the fallback path. Fail-open: any
-      // error leaves the field undefined and the rule defaults take over.
-      let _nudgeTravelState:
-        | { state?: string | null; distanceFromHomeKm?: number | null }
-        | null = null;
-      try {
-        const { data: tsRow } = await supabase!
-          .from('travel_state')
-          .select('state, distance_from_home_km')
-          .eq('user_id', ctx.userId)
-          .maybeSingle();
-        if (tsRow) {
-          _nudgeTravelState = {
-            state: (tsRow as any).state ?? null,
-            distanceFromHomeKm: (tsRow as any).distance_from_home_km ?? null,
-          };
-        }
-      } catch (tsErr) {
-        console.warn('[smart-nudges] travel_state hydration skipped:',
-          tsErr instanceof Error ? tsErr.message : tsErr);
-      }
+      // Travel state comes from the already-hydrated travel SSOT verdict on
+      // the nudge context (`_shared/travel/travel-day.ts`) — no second query.
+      const _nudgeTravelState = {
+        state: ctx.travelSignal.state ?? null,
+        distanceFromHomeKm: ctx.travelSignal.distanceKm ?? null,
+      };
       const wiring = evaluateForScope(
         {
           wearable: ctx.hasWearableData
@@ -3270,9 +3334,15 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
             confidence: null,
             clarity: null,
           },
-          scoreToday: null,
+          scoreToday: typeof ctx.readinessScore === "number"
+            ? ctx.readinessScore
+            : null,
           scoreYesterday: null,
-          timezone: { offsetMinutes: null, shift48hHours: null, travelDay: false },
+          timezone: {
+            offsetMinutes: null,
+            shift48hHours: null,
+            travelDay: ctx.travelSignal.travelDay,
+          },
           travelState: _nudgeTravelState,
           events: eventsForCtx,
           now: new Date(),
@@ -3282,6 +3352,7 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
           dayOfWeek: ctx.dayOfWeek,
           backToBackHoursToday,
           historicalAppOpenRateLow: isAppOpenRateLow(ctx.lastAppOpen),
+          availability: ctx.dayContext.availability,
         },
       );
       if (wiring?.promptBlock) {
@@ -3293,8 +3364,60 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
     console.warn("[smart-nudges] behaviour wiring skipped:", e);
   }
 
+  // Load shape (read-only, render-gated). Silent on any failure or when no
+  // shape is stored — the prompt then reads exactly as it does today.
+  try {
+    if (supabase) {
+      const storedShape = await fetchRenderableLoadShape(
+        supabase,
+        ctx.userId,
+        ctx.todayStr,
+        ctx.briefWindow as "morning" | "afternoon" | "evening",
+      );
+      if (storedShape) {
+        const shapeBlock = nudgeShapePromptBlock(
+          getLoadShapeOrDefault(storedShape),
+          { cliffActive: nudgeShapeStacksOnCliff(storedShape.shapeId) },
+        );
+        if (shapeBlock) behaviourPromptBlock += shapeBlock;
+      }
+    }
+  } catch (shapeErr) {
+    console.warn("[smart-nudges] load shape prompt block skipped:", shapeErr);
+  }
+
+
   if (behaviourPromptBlock) {
     userPrompt = `${behaviourPromptBlock}\n\n${userPrompt}`;
+  }
+
+  // Optional "immediate context" block: wearable signals, readiness state and
+  // the strongest matching pattern fact. Purely additive — when nothing is
+  // known the block is empty and the prompt is unchanged.
+  try {
+    const immediate = buildImmediateContextBlock(
+      ctx,
+      typeof specificSignals.eventTitle === "string"
+        ? specificSignals.eventTitle
+        : null,
+    );
+    if (immediate) userPrompt = `${userPrompt}${immediate}`;
+  } catch (icErr) {
+    console.warn("[smart-nudges] immediate context block skipped:", icErr);
+  }
+
+  // Event phase for the truth contract: derived from the anchor event on the
+  // context. `anchorPhase` stays supported as an explicit override.
+  let resolvedPhase: EventPhase | null = anchorPhase ?? null;
+  if (!resolvedPhase) {
+    try {
+      const anchorTitle = typeof specificSignals.eventTitle === "string"
+        ? specificSignals.eventTitle
+        : null;
+      resolvedPhase = resolveCtxEventPhase(ctx, anchorTitle)?.phase ?? null;
+    } catch {
+      resolvedPhase = null;
+    }
   }
 
   // Launch contract: exactly ONE Gemini attempt, then the deterministic
@@ -3306,7 +3429,7 @@ ${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at 
     nudgeType,
     systemPrompt,
     userPrompt,
-    anchorPhase ?? null,
+    resolvedPhase,
   );
   if (geminiCopy) return geminiCopy;
   return null;
@@ -5843,6 +5966,14 @@ serve(async (req) => {
           mrs_readiness_state: snapRow?.readiness_state ?? null,
           mrs_readiness_score_present: readinessScorePresent,
         };
+        // Optional prompt context. Absent snapshot leaves both null and the
+        // prompt reads exactly as it does today.
+        ctx.readinessState = snapRow?.readiness_state ?? null;
+        ctx.readinessScore = typeof snapRow?.readiness_score_refined === "number"
+          ? snapRow.readiness_score_refined
+          : (typeof snapRow?.readiness_score_baseline === "number"
+            ? snapRow.readiness_score_baseline
+            : null);
         Object.assign(traceBase.metadata, mrsSnapshotMeta);
         if (!readinessScorePresent) {
           console.log(
