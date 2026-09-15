@@ -2940,7 +2940,7 @@ function containsFabricatedWearableData(
  * rule. Returns "" when nothing factual is known, in which case the prompt is
  * byte-identical to today's. Nothing here is ever invented.
  */
-function buildImmediateContextBlock(
+export function buildImmediateContextBlock(
   ctx: NudgeContext,
   anchorTitle: string | null,
 ): string {
