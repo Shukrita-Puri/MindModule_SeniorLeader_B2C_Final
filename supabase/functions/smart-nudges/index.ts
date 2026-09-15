@@ -3239,27 +3239,12 @@ ${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at
           startTime: e.start_time,
           stakesLevel: isHighStakes(e.title) ? "external" : null,
         }));
-      // Part 1 - hydrate travel_state for the fallback path. Fail-open: any
-      // error leaves the field undefined and the rule defaults take over.
-      let _nudgeTravelState:
-        | { state?: string | null; distanceFromHomeKm?: number | null }
-        | null = null;
-      try {
-        const { data: tsRow } = await supabase!
-          .from('travel_state')
-          .select('state, distance_from_home_km')
-          .eq('user_id', ctx.userId)
-          .maybeSingle();
-        if (tsRow) {
-          _nudgeTravelState = {
-            state: (tsRow as any).state ?? null,
-            distanceFromHomeKm: (tsRow as any).distance_from_home_km ?? null,
-          };
-        }
-      } catch (tsErr) {
-        console.warn('[smart-nudges] travel_state hydration skipped:',
-          tsErr instanceof Error ? tsErr.message : tsErr);
-      }
+      // Travel state comes from the already-hydrated travel SSOT verdict on
+      // the nudge context (`_shared/travel/travel-day.ts`) — no second query.
+      const _nudgeTravelState = {
+        state: ctx.travelSignal.state ?? null,
+        distanceFromHomeKm: ctx.travelSignal.distanceKm ?? null,
+      };
       const wiring = evaluateForScope(
         {
           wearable: ctx.hasWearableData
