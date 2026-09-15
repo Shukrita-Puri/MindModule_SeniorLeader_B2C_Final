@@ -5849,6 +5849,14 @@ serve(async (req) => {
           mrs_readiness_state: snapRow?.readiness_state ?? null,
           mrs_readiness_score_present: readinessScorePresent,
         };
+        // Optional prompt context. Absent snapshot leaves both null and the
+        // prompt reads exactly as it does today.
+        ctx.readinessState = snapRow?.readiness_state ?? null;
+        ctx.readinessScore = typeof snapRow?.readiness_score_refined === "number"
+          ? snapRow.readiness_score_refined
+          : (typeof snapRow?.readiness_score_baseline === "number"
+            ? snapRow.readiness_score_baseline
+            : null);
         Object.assign(traceBase.metadata, mrsSnapshotMeta);
         if (!readinessScorePresent) {
           console.log(
