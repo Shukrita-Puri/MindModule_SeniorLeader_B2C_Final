@@ -3173,14 +3173,23 @@ Say "practices" not "priorities". Never reference "Priority 1".`;
     case 'nudge_two_recalibrate': {
       const eventTitle = truncateEventTitle(specificSignals.eventTitle as string);
       const sharedEventFrameLine = buildSharedEventFrameLine(specificSignals.eventTitle as string);
+      const phaseInfo = resolveCtxEventPhase(ctx, specificSignals.eventTitle as string);
+      const phaseLine = phaseInfo?.clause
+        ? `\nPhase-correct wording (this event is ${phaseInfo.phase}): ${phaseInfo.clause}`
+        : '';
+      const provenanceLines = buildStateProvenanceLines(ctx);
       userPrompt = `State-aware recalibration. User started low; heavy afternoon ahead.
 
 Available signals:
 - Morning check-in: ${ctx.morningCheckinOutcome}
-- Next event: "${eventTitle}"
-${sharedEventFrameLine}
+- Anchor event: "${eventTitle}"
+${sharedEventFrameLine}${phaseLine}${provenanceLines ? `\n${provenanceLines}` : ''}
 
-Required: name the morning state AND the event in a meaning sentence (e.g. "Your morning state was low and ${eventTitle} is next - this is the recovery window").
+Required: name the event in a meaning sentence${
+        ctx.morningCheckinOutcome
+          ? ` together with the morning state (e.g. "Your morning state was low and ${eventTitle} is next - this is the recovery window")`
+          : ` (do not claim a morning state — none was recorded)`
+      }.
 Required CTA verb at end of body: "check in to recalibrate".`;
       break;
     }
