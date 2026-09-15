@@ -44,6 +44,16 @@ Audited; three concrete reasons, all in this file:
 
 Proposed fix, additive and small: one shared "immediate context" prompt block, built from data already on the context, appended to every reminder prompt — today's wearable signals, the readiness state/score when present, and the single strongest matching pattern fact for the anchor event (event type, occurrence count, direction of the physiological shift). The existing copy contract keeps the guard rails: only real named tokens, never an invented number, and the pattern fact only appears when the store actually holds it.
 
+## Nothing gets stricter — no new way to be blocked
+
+Every item above is offered to the model as available context, never required of it:
+- the new block is phrased as "you may use these", so copy that ignores it still passes,
+- no new validation rule, forbidden word, or required token is added; the quality gate stays exactly as it is today,
+- the event-phase check in item 3 only rejects claiming a running meeting is "next" — a factual error — and the built-in text plus guaranteed last-resort text remain behind it, so a rejection still ships something,
+- the extra context in item 2 can only add branches to the prompt; when it is missing the prompt is identical to today's.
+
+A test asserts that with an entirely empty context — no wearable, no readiness, no patterns, no availability — every reminder type still produces deliverable text.
+
 ## Safety
 
 - Nothing outside `smart-nudges` is edited; no schema change, no frontend change.
