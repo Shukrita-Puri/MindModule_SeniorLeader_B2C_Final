@@ -1087,6 +1087,9 @@ interface NudgeContext {
   hrvDeltaPctFromSnapshot: number | null;
   // v7 - Unified pattern store (cross-event historical correlations)
   pattern: PatternSummary | null;
+  /** MRS readiness snapshot (optional context only — never gates a send). */
+  readinessState?: string | null;
+  readinessScore?: number | null;
   // V8 - Day-shape awareness (copy only). Travel/away-day and post-travel.
   // C2 (Path B, pre-launch): legacy 'ooo' kind folded into 'away-day' — the
   // canonical PTO SSOT (PTO_TITLE_RX) already matches OOO titles, and both
