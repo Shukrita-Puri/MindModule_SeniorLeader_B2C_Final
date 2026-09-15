@@ -3149,8 +3149,19 @@ Required CTA verb at end of body: "log in to prep your state" or "check in to re
     }
 
     case 'nudge_three': {
-      const isWeekendEvening = ctx.isWeekend || ctx.dayOfWeek === 5;
-      const isSundayEvening = ctx.dayOfWeek === 0;
+      // Weekend framing SSOT: the FIRST weekend day always gets the
+      // recovery/light-day framing, the LAST weekend day always gets the
+      // week-ahead framing, and the day before the weekend gets the
+      // close-the-week framing. Same rule + same copy for Sat/Sun and Fri/Sat
+      // countries — only the resolved day numbers differ.
+      const firstWeekendDay = firstWeekendDayForHomeCountry(ctx.homeCountry);
+      const lastWeekendDay = lastWeekendDayForHomeCountry(ctx.homeCountry);
+      const preWeekendDay = (firstWeekendDay + 6) % 7;
+      const isFirstWeekendEvening = ctx.dayOfWeek === firstWeekendDay;
+      const isLastWeekendEvening = ctx.dayOfWeek === lastWeekendDay;
+      const isPreWeekendEvening = ctx.dayOfWeek === preWeekendDay;
+      const isWeekendEvening = ctx.isWeekend || isPreWeekendEvening;
+      void isWeekendEvening;
       const tomorrowHighStakes = ctx.tomorrowEvents.filter(e => isHighStakes(e.title)).map(e => ({ ...e, title: truncateEventTitle(e.title) }));
       const tomorrowEventCount = ctx.tomorrowEvents.filter(e => !isNoiseEvent(e.title || '')).length;
       const sharedTomorrowFrameLine = buildSharedEventFrameLine(tomorrowHighStakes[0]?.title || null);
