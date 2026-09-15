@@ -1,41 +1,54 @@
-# Restore three reverted behaviours in the reminders function
+# Restore reverted reminder behaviour + audit missing context in reminder copy
 
-All three reports are confirmed against the current file (`supabase/functions/smart-nudges/index.ts`). Work is confined to that one file plus its tests, and one isolated deploy of `smart-nudges`. No other function, no frontend change.
+All findings below are confirmed against the current `supabase/functions/smart-nudges/index.ts`. Work stays inside that one function (plus its own tests). One isolated deploy of `smart-nudges` at the end, nothing else touched.
 
-## 1. Weekend framing disagrees with the send window
+## 1. Weekend framing must follow one rule for every country
 
-Confirmed: the evening prompt builder uses hardcoded day numbers (`ctx.dayOfWeek === 0`, `=== 5`, `=== 6` at lines 3153, 3176-3182), while the send-window and skip gates at 3992 and 4013 use `firstWeekendDayForHomeCountry` / `lastWeekendDayForHomeCountry`. For Fri/Sat-weekend countries the scheduler and the copy pick different days.
+The rule, unchanged for anyone: **first day of the weekend gets the recovery/light-day copy; last day of the weekend gets the week-ahead copy.** Saturday/Sunday countries already behave this way. Friday/Saturday countries must follow the exact same rule with the same copy — recovery on Friday, week-ahead on Saturday.
 
-Fix: in the `nudge_three` case, derive
-- `firstWeekendDay` / `lastWeekendDay` from `ctx.homeCountry` using the same two helpers already imported at lines 90 and 112,
-- `isLastWeekendEvening = ctx.dayOfWeek === lastWeekendDay` (the Sunday-equivalent, week-ahead framing and CTA verbs),
-- `isFirstWeekendEvening = ctx.dayOfWeek === firstWeekendDay` (the Saturday-equivalent recovery framing),
-- the pre-weekend "close the week" branch keyed off the day before `firstWeekendDay`,
-- the plain weekday branch as "neither weekend day nor the pre-weekend day".
+Today the evening prompt builder hardcodes day numbers (`dayOfWeek === 0` for week-ahead, `=== 6` for recovery, `=== 5` for "close the week") while the send-window and skip gates in the same file already resolve the weekend from the user's home country. For Friday/Saturday countries the schedule and the copy disagree.
 
-For Sun/Sat-weekend countries the resolved numbers are identical to today's hardcoded ones, so behaviour there is unchanged.
+Fix: in the evening prompt case, resolve `firstWeekendDay` / `lastWeekendDay` from `ctx.homeCountry` with the two helpers already imported, then key the existing branches off them:
+- last weekend day → the current week-ahead framing and CTA verbs (unchanged text),
+- first weekend day → the current recovery framing and CTA verb (unchanged text),
+- the day before the first weekend day → the existing "close the week" framing,
+- everything else → the existing weekday branch.
 
-## 2. Behaviour rules cannot fire for reminder copy
+No copy is rewritten and no rule changes. For Saturday/Sunday countries the resolved numbers are identical to today's hardcoded ones, so their behaviour is byte-for-byte the same.
 
-Confirmed: the `evaluateForScope` call at ~3252 passes `timezone: { …, travelDay: false }`, omits `availability`, and re-queries `travel_state` inline even though `ctx.travelSignal` (built at ~2049-2056) and `ctx.dayContext.availability` (set at 2596) are already hydrated. With `travelDay` pinned false and no availability, the PTO / public-holiday / weekend and travel rules can never match, so those branches drop out of the copy prompt.
+## 2. Wire up the context that already exists but is ignored
 
-Fix:
-- pass `travelDay: ctx.travelSignal.travelDay`,
-- pass `availability: ctx.dayContext.availability`,
-- derive `travelState` from the hydrated `ctx.travelSignal` and delete the per-nudge `travel_state` query and its local variable,
-- restore the load-shape prompt reader block (`fetchRenderableLoadShape` / `getLoadShapeOrDefault` / `nudgeShapePromptBlock`), whose imports at lines 6 and 8 are currently unused, appending its block to `behaviourPromptBlock` the same way the wiring block does, and staying silent on failure.
+The reminder run already hydrates travel state, availability and load shape, then throws them away at the rule-evaluation step:
+- the rule context is handed `travelDay: false` even though `ctx.travelSignal.travelDay` is already computed,
+- the `availability` field is not passed at all even though `ctx.dayContext.availability` is already classified,
+- a redundant per-reminder `travel_state` query runs anyway,
+- the load-shape prompt reader is imported but never called.
 
-## 3. Event-phase gate skipped for all AI copy
+With travel pinned false and availability absent, the time-off / public-holiday / weekend and travel rules can never fire, so those branches silently vanish from the copy prompt.
 
-Confirmed: `generateNudgeCopy` takes `anchorPhase` as an optional parameter (line 2937) and none of the call sites pass it, so `violatesTruthContract` → `validateEventPhaseInCopy` never runs on AI copy. Only the static fallback at ~3921 still resolves a phase.
+Fix: pass the already-hydrated travel verdict and availability into the rule evaluation, drop the redundant query, and call the existing load-shape prompt reader, appending its block the same way the behaviour block is appended. Every failure path stays silent (falls back to today's behaviour), so nothing can regress into an error.
 
-Fix:
-- inside `generateNudgeCopy`, compute the phase from the anchor title in `specificSignals` via the existing `resolveCtxEventPhase(ctx, title)` and use it for `tryAIProvider`; keep the parameter as an explicit override so the fallback path can still supply one,
-- in the `nudge_two_recalibrate` prompt, replace the flat `- Next event: "${eventTitle}"` line with the phase-correct clause from `resolveCtxEventPhase` (so an underway block is never called "next"), and gate the "name the morning state" instruction behind `buildStateProvenanceLines(ctx)` (already defined at 1591, currently unused) so copy only asserts a morning state when a real check-in exists.
+## 3. Event-phase gate is skipped for all AI copy
 
-## Verification
+`generateNudgeCopy` accepts an event-phase argument but no caller passes one, so the check that stops copy calling an already-running meeting "next" never runs on AI copy — only the built-in fallback still does it.
 
-- `deno check` on the function must be clean, including no unused imports.
-- Run the existing smart-nudges test suite (`fallback_floor_contract_test.ts`, `v5_validation_test.ts` and peers); all must stay green.
-- Add three targeted tests: a Fri/Sat-weekend `homeCountry` gets the week-ahead framing on its last weekend day and recovery framing on its first; an underway anchor event yields no future-tense AI copy; the recalibrate prompt omits the morning-state instruction when there is no morning check-in.
-- Deploy `smart-nudges` alone.
+Fix: compute the phase inside `generateNudgeCopy` from the anchor event already in its inputs (using the existing resolver) and use it for the AI validation, keeping the argument as an override for the fallback path. In the midday recalibrate prompt, replace the flat "Next event" line with the phase-correct clause, and gate the "name the morning state" instruction behind the existing state-provenance helper so copy only claims a morning state when a real check-in exists.
+
+## 4. Audit: why reminder copy has no wearable / readiness / pattern context
+
+Audited; three concrete reasons, all in this file:
+
+1. **Historical patterns never reach the copy prompt.** The pattern store *is* loaded onto the reminder context, but it is only used for two things: ranking which reminder variant wins, and the separate standalone "pattern alert" reminder. No prompt lists pattern facts, so the model has no way to write "the last 3 board meetings ran with elevated heart rate" — that sentence type only exists as a fixed deterministic string in the pattern-alert reminder.
+2. **Readiness (MRS) is never given to the model at all.** The readiness score is read from the snapshot for logging only, is not in any prompt, and the rule evaluation is passed `scoreToday: null`, so readiness-driven behaviour rules cannot fire either.
+3. **Wearable data is present unevenly and only as today's numbers.** The morning prompt gets full wearable lines; the midday and evening prompts get at most one HRV/RHR line, and the JIT prompts get one HRV line. Nothing is comparative (no "vs the last 3 of these"), and stale data is nulled out, so on many runs the wearable block reads "not available".
+
+Proposed fix, additive and small: one shared "immediate context" prompt block, built from data already on the context, appended to every reminder prompt — today's wearable signals, the readiness state/score when present, and the single strongest matching pattern fact for the anchor event (event type, occurrence count, direction of the physiological shift). The existing copy contract keeps the guard rails: only real named tokens, never an invented number, and the pattern fact only appears when the store actually holds it.
+
+## Safety
+
+- Nothing outside `smart-nudges` is edited; no schema change, no frontend change.
+- No existing copy string is rewritten in items 1-3; the only new text is the item-4 prompt block, which the existing quality gate already validates.
+- Every new read is failure-tolerant: if it is missing, the prompt degrades to exactly today's content.
+- `deno check` must be clean (including no unused imports), and the full existing smart-nudges test suite must stay green.
+- New tests: a Friday/Saturday-weekend country gets recovery framing on Friday and week-ahead framing on Saturday; a Saturday/Sunday country is unchanged; an underway anchor event never produces future-tense copy; the immediate-context block is empty rather than invented when no wearable, readiness or pattern data exists.
+- Deploy `smart-nudges` on its own, then check one live run's logs.
