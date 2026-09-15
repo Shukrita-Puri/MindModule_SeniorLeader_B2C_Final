@@ -3184,13 +3184,13 @@ Available signals (use ONLY these):
 ${todayStakes.length > 0 ? `- High-stakes today: ${todayStakes.join(', ')}` : ''}
 - Practices: ${prioritiesCompleted}/${prioritiesTotal} done${prioritiesRemaining > 0 ? `, ${prioritiesRemaining} still open` : ''}
 ${eveningWearableLines.length > 0 ? eveningWearableLines.join('\n') : '- Wearable: not available, DO NOT mention HRV, RHR, sleep'}
-${isSundayEvening ? `- Tomorrow (Mon): ${tomorrowEventCount} meetings${tomorrowHighStakes.length > 0 ? `, incl. "${tomorrowHighStakes[0].title}"` : ''}` : ''}
+${isLastWeekendEvening ? `- Tomorrow: ${tomorrowEventCount} meetings${tomorrowHighStakes.length > 0 ? `, incl. "${tomorrowHighStakes[0].title}"` : ''}` : ''}
 ${sharedTomorrowFrameLine}
 
-${isSundayEvening ? `SUNDAY framing: name a Monday signal, prepare the user for the week. Required CTA verb at end of body: "check in to set tomorrow" (default) or "log in to prep your mind tonight" (if a high-stakes Monday event).` : ''}
-${ctx.dayOfWeek === 5 ? `FRIDAY framing: name today's load (meetings count or high-stakes) inside a meaning sentence. Required CTA verb at end of body: "check in to close the week".` : ''}
-${!isSundayEvening && ctx.dayOfWeek !== 5 && ctx.dayOfWeek !== 6 ? `Required CTA verb at end of body: "log in to recalibrate your mind" (if HRV/RHR signal) or "check in to close the day" (default).` : ''}
-${ctx.dayOfWeek === 6 ? `SATURDAY framing: recovery-first. Required CTA verb at end of body: "check in to land the weekend".` : ''}`;
+${isLastWeekendEvening ? `WEEK-AHEAD framing: name a signal from tomorrow, prepare the user for the week. Required CTA verb at end of body: "check in to set tomorrow" (default) or "log in to prep your mind tonight" (if a high-stakes event tomorrow).` : ''}
+${isPreWeekendEvening ? `PRE-WEEKEND framing: name today's load (meetings count or high-stakes) inside a meaning sentence. Required CTA verb at end of body: "check in to close the week".` : ''}
+${!isLastWeekendEvening && !isPreWeekendEvening && !isFirstWeekendEvening ? `Required CTA verb at end of body: "log in to recalibrate your mind" (if HRV/RHR signal) or "check in to close the day" (default).` : ''}
+${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at end of body: "check in to land the weekend".` : ''}`;
       break;
     }
 
