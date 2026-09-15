@@ -3266,9 +3266,15 @@ ${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at
             confidence: null,
             clarity: null,
           },
-          scoreToday: null,
+          scoreToday: typeof ctx.readinessScore === "number"
+            ? ctx.readinessScore
+            : null,
           scoreYesterday: null,
-          timezone: { offsetMinutes: null, shift48hHours: null, travelDay: false },
+          timezone: {
+            offsetMinutes: null,
+            shift48hHours: null,
+            travelDay: ctx.travelSignal.travelDay,
+          },
           travelState: _nudgeTravelState,
           events: eventsForCtx,
           now: new Date(),
@@ -3278,6 +3284,7 @@ ${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at
           dayOfWeek: ctx.dayOfWeek,
           backToBackHoursToday,
           historicalAppOpenRateLow: isAppOpenRateLow(ctx.lastAppOpen),
+          availability: ctx.dayContext.availability,
         },
       );
       if (wiring?.promptBlock) {
