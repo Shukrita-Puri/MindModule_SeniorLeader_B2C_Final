@@ -2932,6 +2932,62 @@ function containsFabricatedWearableData(
   return FABRICATION_PATTERNS.some((pattern) => pattern.test(body));
 }
 
+/**
+ * Optional "immediate context" prompt block — wearable signals, MRS readiness
+ * and the strongest matching pattern fact for the anchor event.
+ *
+ * Contract: OFFERED context only. Never a requirement, never a new validation
+ * rule. Returns "" when nothing factual is known, in which case the prompt is
+ * byte-identical to today's. Nothing here is ever invented.
+ */
+function buildImmediateContextBlock(
+  ctx: NudgeContext,
+  anchorTitle: string | null,
+): string {
+  const lines: string[] = [];
+
+  if (ctx.hasWearableData) {
+    const w = ctx.wearable;
+    if (typeof w.hrvDeltaPct === "number") {
+      const dir = w.hrvDeltaPct < 0 ? "below" : "above";
+      lines.push(
+        `HRV is ${Math.abs(Math.round(w.hrvDeltaPct))}% ${dir} their 30-day normal range.`,
+      );
+    }
+    if (w.rhrElevated) lines.push(`Resting heart rate is elevated today.`);
+    if (typeof w.totalSleepMinutes === "number") {
+      lines.push(`Slept ${(w.totalSleepMinutes / 60).toFixed(1)}h last night.`);
+    }
+  }
+
+  if (ctx.readinessState) {
+    lines.push(
+      typeof ctx.readinessScore === "number"
+        ? `Readiness state: ${ctx.readinessState} (${
+          Math.round(ctx.readinessScore)
+        }).`
+        : `Readiness state: ${ctx.readinessState}.`,
+    );
+  }
+
+  try {
+    const hit = findEventPattern(ctx.pattern, anchorTitle);
+    if (hit && hit.n >= 2) {
+      const dir = hit.hrvDeltaPct < 0 ? "drops" : "rises";
+      lines.push(
+        `Pattern (${hit.confidence}, n=${hit.n}): across their last ${hit.n} events like this, HRV ${dir} ${
+          Math.abs(Math.round(hit.hrvDeltaPct))
+        }%${hit.rhrElevated ? " with heart rate elevated" : ""}.`,
+      );
+    }
+  } catch { /* pattern store optional */ }
+
+  if (lines.length === 0) return "";
+  return `\n\n=== IMMEDIATE CONTEXT (optional — use only if it makes the notification more specific; never invent, never required) ===\n${
+    lines.join("\n")
+  }`;
+}
+
 async function generateNudgeCopy(
   ctx: NudgeContext,
   nudgeType: string,
