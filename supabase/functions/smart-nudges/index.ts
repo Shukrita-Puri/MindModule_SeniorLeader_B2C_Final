@@ -3299,6 +3299,29 @@ ${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at
     console.warn("[smart-nudges] behaviour wiring skipped:", e);
   }
 
+  // Load shape (read-only, render-gated). Silent on any failure or when no
+  // shape is stored — the prompt then reads exactly as it does today.
+  try {
+    if (supabase) {
+      const storedShape = await fetchRenderableLoadShape(
+        supabase,
+        ctx.userId,
+        ctx.todayStr,
+        ctx.briefWindow as "morning" | "afternoon" | "evening",
+      );
+      if (storedShape) {
+        const shapeBlock = nudgeShapePromptBlock(
+          getLoadShapeOrDefault(storedShape),
+          { cliffActive: nudgeShapeStacksOnCliff(storedShape.shapeId) },
+        );
+        if (shapeBlock) behaviourPromptBlock += shapeBlock;
+      }
+    }
+  } catch (shapeErr) {
+    console.warn("[smart-nudges] load shape prompt block skipped:", shapeErr);
+  }
+
+
   if (behaviourPromptBlock) {
     userPrompt = `${behaviourPromptBlock}\n\n${userPrompt}`;
   }
