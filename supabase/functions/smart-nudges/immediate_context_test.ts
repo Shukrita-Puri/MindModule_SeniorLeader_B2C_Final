@@ -93,9 +93,9 @@ Deno.test("immediate context cites a pattern only with enough observations", () 
 
 Deno.test("weekend framing rule is identical for Sat/Sun and Fri/Sat countries", () => {
   // Sat/Sun weekend: recovery framing Saturday, week-ahead Sunday.
-  assertEquals(firstWeekendDayForHomeCountry("United Kingdom"), 6);
-  assertEquals(lastWeekendDayForHomeCountry("United Kingdom"), 0);
+  assertEquals(firstWeekendDayForHomeCountry("GB"), 6);
+  assertEquals(lastWeekendDayForHomeCountry("GB"), 0);
   // Fri/Sat weekend: same rule, shifted one day.
-  assertEquals(firstWeekendDayForHomeCountry("United Arab Emirates"), 5);
-  assertEquals(lastWeekendDayForHomeCountry("United Arab Emirates"), 6);
+  assertEquals(firstWeekendDayForHomeCountry("SA"), 5);
+  assertEquals(lastWeekendDayForHomeCountry("SA"), 6);
 });
