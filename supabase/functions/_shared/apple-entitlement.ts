@@ -108,7 +108,7 @@ export async function verifyAppleSignedPayload<T>(jws: string): Promise<T> {
   const leafDer = b64UrlToBytes(header.x5c[0].replace(/\s/g, ''));
   const publicKey = await crypto.subtle.importKey(
     'spki',
-    extractSpkiFromCertificate(leafDer),
+    extractSpkiFromCertificate(leafDer) as unknown as BufferSource,
     { name: 'ECDSA', namedCurve: 'P-256' },
     false,
     ['verify'],
@@ -119,7 +119,7 @@ export async function verifyAppleSignedPayload<T>(jws: string): Promise<T> {
   const valid = await crypto.subtle.verify(
     { name: 'ECDSA', hash: 'SHA-256' },
     publicKey,
-    signature,
+    signature as unknown as BufferSource,
     signingInput,
   );
   if (!valid) throw new Error('Apple JWS signature verification failed');
@@ -170,7 +170,12 @@ export function isTransactionActive(tx: AppleTransactionPayload, now = Date.now(
 }
 
 export function tierForProductId(productId: string): 'monthly_pro' | 'annual_pro' {
-  const monthly = Deno.env.get('IAP_PRODUCT_ID_MONTHLY');
+  let monthly: string | undefined;
+  try {
+    monthly = (globalThis as any).Deno?.env?.get?.('IAP_PRODUCT_ID_MONTHLY');
+  } catch {
+    monthly = undefined;
+  }
   if (monthly && productId === monthly) return 'monthly_pro';
   // Fall back to a naming heuristic so a mis-set env var degrades to a
   // reasonable tier rather than a wrong one.
@@ -213,11 +218,21 @@ export async function applyAppleEntitlement(
     ...tx,
     expiresDate: expiryMs,
   };
-  const active = isTransactionActive(withGrace);
+  let active = isTransactionActive(withGrace);
+
+  // Terminal notification types from Apple explicitly mark the entitlement as ended,
+  // preventing minor clock skew or delayed processing from treating them as active.
+  if (
+    ctx.notificationType === 'EXPIRED' ||
+    ctx.notificationType === 'GRACE_PERIOD_EXPIRED' ||
+    ctx.notificationType === 'REVOKE'
+  ) {
+    active = false;
+  }
 
   const { data: profile } = await db
     .from('profiles')
-    .select('subscription_provider, subscription_status, stripe_subscription_id, subscription_current_period_end')
+    .select('subscription_provider, subscription_status, stripe_subscription_id, subscription_current_period_end, apple_original_transaction_id')
     .eq('id', userId)
     .maybeSingle();
 
@@ -261,6 +276,11 @@ export async function applyAppleEntitlement(
       : new Date().toISOString();
   }
 
+  const isAppleSubscriber =
+    profile?.subscription_provider === 'apple' ||
+    (Boolean(profile?.apple_original_transaction_id) &&
+      profile.apple_original_transaction_id === tx.originalTransactionId);
+
   if (active && !stripeStillActive) {
     update.subscription_provider = 'apple';
     update.subscription_status = 'active';
@@ -278,15 +298,39 @@ export async function applyAppleEntitlement(
       update.subscription_canceled_at = null;
       update.subscription_cancel_at = null;
     }
-  } else if (!active && profile?.subscription_provider === 'apple' && !stripeStillActive) {
+  } else if (!active && isAppleSubscriber && !stripeStillActive) {
     // Apple entitlement lapsed / refunded / revoked and there is no Stripe
     // fallback — drop access.
-    update.subscription_status = tx.revocationDate ? 'canceled' : 'expired';
+    const isCanceledOrRevoked = Boolean(
+      tx.revocationDate ||
+      ctx.notificationType === 'REVOKE' ||
+      ctx.notificationType === 'REFUND'
+    );
+    update.subscription_status = isCanceledOrRevoked ? 'canceled' : 'expired';
     update.subscription_tier = 'none';
     update.subscription_canceled_at = new Date().toISOString();
+    if (expiryMs) {
+      update.subscription_current_period_end = new Date(expiryMs).toISOString();
+    }
   }
 
-  const { error: updateError } = await db.from('profiles').update(update).eq('id', userId);
+  let { error: updateError } = await db.from('profiles').update(update).eq('id', userId);
+  if (updateError) {
+    // If the database has a check constraint that rejects 'expired' (e.g. pre-migration environments),
+    // fall back gracefully to 'canceled' rather than throwing an unhandled 500 error
+    // and leaving the user with active paid access.
+    if (
+      update.subscription_status === 'expired' &&
+      ((updateError as { code?: string }).code === '23514' ||
+        updateError.message?.toLowerCase().includes('subscription_status'))
+    ) {
+      console.warn(`[apple-entitlement] DB rejected 'expired' status, falling back to 'canceled' for user ${userId}`);
+      update.subscription_status = 'canceled';
+      const fallback = await db.from('profiles').update(update).eq('id', userId);
+      updateError = fallback.error;
+    }
+  }
+
   if (updateError) {
     console.error(`[apple-entitlement] ❌ DB update failed for user ${userId}:`, updateError.message);
     throw new Error(`Profile database update failed: ${updateError.message}`);

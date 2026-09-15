@@ -42,7 +42,7 @@ interface AppUser {
   email: string;
   name?: string;
   picture?: string;
-  subscription_status?: 'active' | 'inactive' | 'trial' | 'trialing' | 'canceled' | 'past_due' | 'none';
+  subscription_status?: 'active' | 'inactive' | 'trial' | 'trialing' | 'canceled' | 'past_due' | 'expired' | 'none';
   subscription_plan?: 'monthly' | 'annual';
   onboarding_completed?: boolean;
   onboarding_completed_at?: string | null;

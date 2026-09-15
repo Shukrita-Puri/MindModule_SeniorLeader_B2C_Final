@@ -85,6 +85,11 @@ describe('resolveSubscriptionAccess', () => {
       subscription_status: 'canceled',
       subscription_tier: 'none',
     })).toBe('block');
+
+    expect(resolveSubscriptionAccess({
+      subscription_status: 'expired',
+      subscription_tier: 'none',
+    })).toBe('block');
   });
 });
 

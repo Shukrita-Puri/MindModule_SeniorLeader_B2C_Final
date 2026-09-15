@@ -237,15 +237,29 @@ Deno.serve(async (req) => {
   });
 
   const entitlementChanging = !INFORMATIONAL_TYPES.has(notification.notificationType);
-  const result = entitlementChanging
-    ? await applyAppleEntitlement(db, userId, effective, {
-        renewal: effectiveRenewal,
-        notificationType: notification.notificationType,
-        notificationSubtype: notification.subtype,
-        notificationUuid: notification.notificationUUID,
-        signedDate: notification.signedDate,
-      })
-    : { entitled: true };
+  let result = { entitled: true };
+  try {
+    result = entitlementChanging
+      ? await applyAppleEntitlement(db, userId, effective, {
+          renewal: effectiveRenewal,
+          notificationType: notification.notificationType,
+          notificationSubtype: notification.subtype,
+          notificationUuid: notification.notificationUUID,
+          signedDate: notification.signedDate,
+        })
+      : { entitled: true };
+  } catch (err) {
+    console.error('[apple-notifications] entitlement application failed:', err);
+    await finish('failed', {
+      error: (err as Error).message,
+      notification_type: notification.notificationType,
+    }, {
+      user_id: userId,
+      original_transaction_id: effective.originalTransactionId,
+      transaction_id: effective.transactionId,
+    });
+    return json({ error: 'Failed to process entitlement' }, 500);
+  }
 
   await db.from('subscription_events').insert({
     user_id: userId,
