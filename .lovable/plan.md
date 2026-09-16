@@ -1,61 +1,67 @@
-# Missing morning reminder, light-day classification, and a return rule for lapsed users
+# Light day = stakes, not meeting count. Plus: lapsed users keep the full cadence
 
-## First: today was NOT classified as a light day for her
+## Why today was classified as NOT a light day — and why that is wrong
 
 Her run today recorded, verbatim:
 
 ```text
 [availability] state=LIGHT_ROUTINE isRestDay=false reason=workday_light_routine country=GB
-[light-day]    isLightDay=false kind=null lastDay=false meetings=3 prep=none
-               reason=packed_day_meeting_count_gate
+[light-day]    isLightDay=false meetings=3 reason=packed_day_meeting_count_gate
 ```
 
-Two different labels are in play, and only the second one drives cadence:
+The light-day rule counts **timed meetings only** and hard-stops at two or more, regardless of what those meetings are. Her three (Future NEDs 12:30, Pitch Clinic 16:00, Chief UK In Transition 18:00) are all low-stakes educational sessions — informational load, nothing consequential — so the day should read as light. The count gate overrode that.
 
-- **Availability = LIGHT_ROUTINE.** This is the working-day *texture* label: a normal workday, not a rest day, not time off. It does not turn on light-day cadence on its own.
-- **Light day = false.** The light-day rule is a hard gate: two or more timed meetings can never be a light day. She has three (12:30, 16:00, 18:00), so the gate fired with `packed_day_meeting_count_gate`.
+Consequence: her day went down the ordinary working-day path, her morning reminder was pinned to a window anchored 90 minutes before a 12:30 meeting, and nothing shipped all morning. On the light-day path she would have had a guaranteed morning and evening send.
 
-So the morning-reminder gap has nothing to do with light-day logic. Her day went down the ordinary working-day path, and every reminder that actually shipped today, to other users, was a light-day one — which is why hers stands out as missing.
+## Change 1 — the light-day gate counts high-stakes meetings
 
-## Why her morning reminder never fired — prime suspect, not yet proven
+In the shared light-day rule (`_shared/availability/light-day.ts`), replace the "2+ timed meetings is never light" gate with "2+ **high-stakes** timed meetings is never light":
 
-Her morning reminder is anchored to her first meeting: 60–90 minutes before it, never before 08:00. With a 12:30 first meeting that puts the window at roughly 10:00–12:25 local — but a run only counts as "morning" while the local hour is under 12:00, and the window is also clamped against the meeting time. Her records show every 15-minute run today (08:45 through 11:45 local) produced zero qualified reminders, with nothing failing at delivery.
+- Stakes come from the single A–H event resolver already used everywhere — no new taxonomy, no title guessing in this file.
+- Callers (reminders, plan, brief) already build the event array; they gain the resolved stakes/category per event, which they already resolve elsewhere in the same run.
+- Everything else in the rule is untouched: travel days and all-day conferences still override; weekends, holidays and time off behave exactly as now; the last day of any off-run is still excluded and keeps week-ahead behaviour.
+- Fail-safe: if stakes cannot be resolved for an event, it counts as high-stakes — i.e. the day falls back to today's behaviour rather than becoming light by accident.
 
-The records do not log the computed window, so the cause is not yet proven. Step 1 makes the engine record its own morning-window decision (window start, window end, local time, the meeting it anchored on, and the reason nothing qualified). Additive logging only — no rule change, nothing that can block a send. The next weekday run names the cause, and the fix follows: a late first meeting must never push the morning window past the morning cut-off, so a leader whose first meeting is at 12:30 still gets a morning reminder.
+Effect on her day: 0 high-stakes meetings → light day → guaranteed morning + evening.
 
-## New: a lapsed leader must be pulled back harder, not left quieter
+## Change 2 — light day cadence is a blanket rule
 
-She has not checked in since 10 September. Today the absence of a check-in only *unlocks* the ordinary morning reminder — it never raises priority, so on a day where the ordinary path fails she hears nothing at all for six days running.
+Confirming and enforcing what we agreed, with no conditions attached:
 
-Rule to add, on top of everything existing:
+- Every light day sends **morning and evening**. Always. It is habit formation, not information delivery.
+- A high-stakes commitment in the morning or evening replaces that window's recovery send (still two). A high-stakes afternoon commitment adds an anchored afternoon send (three).
+- One send per window; the daily ceiling is unchanged.
+- The plan follows the same shape on a light day, as today.
 
-- Count days since the leader's last check-in (or last app open, whichever is later).
-- **3+ days quiet** → the morning reminder is treated as first-touch priority: it wins the morning slot outright, and it is exempt from the two-hour spacing gate the same way the existing morning anchor already is.
-- **7+ days quiet** → the day also guarantees an evening reminder if the morning one produced no send, so the day cannot end silent.
-- The guaranteed last-resort text already exists, so a quiet-user reminder can never be dropped for lack of copy.
-- Caps are respected: still at most one reminder per window and no more than the existing daily cap. This changes *priority and guarantee*, never volume beyond today's ceiling.
-- The copy stays factual and uses what is real for that day (meeting count, named meeting, day shape). No "you've been away" shaming, no invented data.
+## Change 3 — lapsed leaders get the same cadence, never less
 
-## Light days: morning + evening, confirmed as intended
+She has not checked in since 10 September. Nothing in the engine treats that as a reason to send *more*, and several paths quietly send *less* when today's data is thin.
 
-The light-day cadence already in the engine matches what we agreed and stays as-is: light days send **morning + evening** (cap 2); a high-stakes morning or evening commitment replaces that window's recovery send; a high-stakes afternoon commitment adds a third, anchored, afternoon send; the last day of a weekend/holiday/time-off run is excluded and keeps week-ahead behaviour. Nothing in this plan changes it. The quiet-user rule above applies to light days too, so a lapsed leader on a light day still gets both sends.
+Rule: absence of a check-in never reduces or blocks a reminder. A leader who has been away receives exactly what they would receive if they had checked in — same slots, same guarantees.
+
+- No tiers, no day-count thresholds, no separate win-back message type.
+- Copy is built from whatever genuinely synced without the app being opened — calendar (Google/Outlook/Apple subscription feeds) syncs server-side, so meeting count, named meeting and day shape are always available.
+- Data that only syncs when the app opens — Apple Health, and therefore heart-rate/sleep and the readiness score — is simply absent from the text. It is never a precondition for sending.
+- The guaranteed last-resort text already exists behind every reminder, so a lapsed leader's day cannot end silent.
+
+## Change 4 — the morning window must sit inside the morning
+
+Her morning window was anchored 90 minutes before a 12:30 meeting (roughly 10:00–12:25 local) while a run only counts as "morning" below 12:00. Every 15-minute run today from 08:45 to 11:45 produced zero qualified reminders and nothing failed at delivery, so the window is the prime suspect — but the records don't log the computed window, so it isn't proven yet.
+
+First step, additive only: record the morning-window decision (window start, window end, local time, the meeting it anchored on, and the reason nothing qualified). Then guarantee that the window always contains at least one usable slot inside the morning period, so a leader whose first meeting is at 12:30 still gets a morning reminder. The anchoring rule itself (60–90 minutes before the first meeting, never before 08:00) stays.
 
 ## Why her reminders carry no wearable / readiness / pattern context — confirmed
 
-Three verified reasons for her account:
+1. **Wearable data is six days stale** — newest daily summary dated 10 Sep, with no HRV and no sleep values. Stale data is treated as absent by design.
+2. **No readiness score exists** — today's and yesterday's records read `awaiting`, both score fields empty.
+3. **Her patterns don't match today's meetings** — stored: Travel (resting heart rate +26%, 2 occurrences), Influence & Persuasion (+10%, 2), Deep Work & Strategy (heart-rate lift 26 bpm, 3). Separately, that richest store — the heart-rate-lift findings Insights cites — is not read by the reminder context block at all.
 
-1. **Wearable data is six days stale.** Newest daily summary is dated 10 Sep and carries no HRV and no sleep values. Stale data is deliberately treated as absent, so those lines stay empty.
-2. **No readiness score exists.** Today's and yesterday's readiness records read `awaiting` with both score fields empty.
-3. **Her patterns don't match today's meetings.** Stored: Travel (resting heart rate +26%, 2 occurrences), Influence & Persuasion (+10%, 2), Deep Work & Strategy (heart-rate lift 26 bpm, 3). Today's three meetings resolve elsewhere. Separately, the richest store — the heart-rate-lift findings that hold the "26 bpm on this kind of meeting" numbers — is not read by the reminder context block at all.
+Additive fix: let the reminder context block also read the heart-rate-lift findings, matched on the meeting's own category. Offered context, never required; with no data the text is exactly as today. Note the block only reaches AI-written copy — built-in text never carries it.
 
-Plus a delivery-path reason: the context block only reaches AI-written text; built-in text never carries it.
+## Safety
 
-Additive fix: let the reminder context block also read the heart-rate-lift findings (the same ones Insights cites), matched on the meeting's own category. Offered context, never required — a reminder with no data sends exactly as it does today.
-
-## Technical notes
-
-- All work stays inside `supabase/functions/smart-nudges/index.ts` and its tests, deployed on its own.
-- Item 1: add `resolveMorningAnchorWindow` output, `localTime`, anchor event id/hour and the `evaluateNudgeOne` null reason to the existing evaluator trace metadata.
-- Quiet-user rule: derive `daysSinceLastCheckin` from the check-in rows already loaded onto the reminder context (plus last app-open from the notification engagement rows), and use it to set first-touch priority and the evening guarantee. No new table, no new notification type.
-- Item on context: extend `buildImmediateContextBlock` to read `signal_summary.performance_lift.hr_event_lift` / `subcategory_lift` through the existing A–H resolver, same "only when the store holds it" guard, same silent-empty behaviour.
-- No schema change, no frontend change, no existing copy rewritten. `deno check` clean, full smart-nudges suite green, plus new tests: a 12:30-first-meeting day yields a morning window inside the morning period; a 3-day-quiet and a 7-day-quiet leader both end the day with a send; caps still hold.
+- Change 1 touches a rule shared by reminders, plan and brief. It only ever moves days from "not light" to "light" for low-stakes days; no day that is light today stops being light. Verified by replaying real accounts before deploy.
+- No schema change, no frontend change, no copy rewritten.
+- `deno check` clean; existing light-day, plan, brief and reminder suites stay green.
+- New tests: three low-stakes meetings → light day; two high-stakes meetings → not light; one high-stakes plus two low → light with an anchored window; unresolvable stakes → not light; a light day always yields morning + evening; a leader with no check-in for a week gets the same sends as one who checked in; a 12:30-first-meeting day has a morning window inside the morning period.
+- Deploy order, each on its own: readiness/brief, plan, reminders — then read one live run per surface.
