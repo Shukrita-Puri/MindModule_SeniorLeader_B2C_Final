@@ -92,11 +92,16 @@ export async function fetchCalendarProvidersState(): Promise<CalendarProvidersFe
         message: (calendar.errorMessage as string | undefined) ?? 'Calendar status temporarily unavailable',
       };
     }
-    const providers = (calendar.providers as Record<string, { connected?: boolean; status?: string; lastSync?: string | null } | undefined>) ?? {};
-    const one = (p?: { connected?: boolean; status?: string; lastSync?: string | null }): ProviderStatus => {
+    const providers = (calendar.providers as Record<string, { connected?: boolean; status?: string; lastSync?: string | null; needsReconnect?: boolean } | undefined>) ?? {};
+    const one = (p?: { connected?: boolean; status?: string; lastSync?: string | null; needsReconnect?: boolean }): ProviderStatus => {
       const s = (p?.status as ProviderConnectionStatus | undefined)
         ?? (p?.connected ? 'connected' : 'disconnected');
-      return { connected: s === 'connected', status: s, lastSync: p?.lastSync ?? null };
+      return {
+        connected: s === 'connected',
+        status: s,
+        lastSync: p?.lastSync ?? null,
+        needsReconnect: !!p?.needsReconnect,
+      };
     };
     return {
       status: 'ok',
@@ -152,6 +157,18 @@ function relativeLabel(iso: string | null | undefined): string | null {
   return `${days}d ago`;
 }
 
+function getStaleWarning(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const syncTime = new Date(iso).getTime();
+  if (!Number.isFinite(syncTime)) return null;
+  const ageMs = Date.now() - syncTime;
+  if (ageMs > 24 * 60 * 60 * 1000) {
+    const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(syncTime));
+    return `Not updated since ${weekday} — reconnect`;
+  }
+  return null;
+}
+
 interface ProviderRowProps {
   provider: CalendarProviderId;
   label: string;
@@ -164,15 +181,44 @@ interface ProviderRowProps {
 
 function ProviderRow({ provider, label, iconSrc, status, redirectPath, onChanged, disabled }: ProviderRowProps) {
   const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const isApple = provider === 'apple';
   const appleAvailable = isApple ? isAppleCalendarSupported() : true;
 
   const connected = !!status?.connected;
   const needsReconnect = !!status?.needsReconnect;
   const lastSyncLabel = relativeLabel(status?.lastSync);
+  const staleWarning = getStaleWarning(status?.lastSync);
+
+  const handleSyncNow = useCallback(async () => {
+    if (disabled || busy || syncing) return;
+    setSyncing(true);
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Not authenticated');
+      const { data, error } = await supabase.functions.invoke('sync-calendar', {
+        body: { provider },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (error) throw error;
+      if (data?.reconnectRequired) {
+        toast.error('Calendar session expired. Please reconnect your calendar.');
+      } else if (data?.success === false) {
+        toast.error(data?.error || 'Calendar sync failed');
+      } else {
+        toast.success(`${label} synced`);
+      }
+      onChanged?.();
+    } catch (err) {
+      console.error('[CalendarProviderPicker] manual sync failed:', err);
+      toast.error(`Failed to sync ${label}`);
+    } finally {
+      setSyncing(false);
+    }
+  }, [busy, disabled, label, onChanged, provider, syncing]);
 
   const handleConnect = useCallback(async () => {
-    if (disabled || busy) return;
+    if (disabled || busy || syncing) return;
     setBusy(true);
     try {
       if (isApple) {
@@ -213,10 +259,10 @@ function ProviderRow({ provider, label, iconSrc, status, redirectPath, onChanged
     } finally {
       setBusy(false);
     }
-  }, [appleAvailable, busy, disabled, isApple, label, onChanged, provider, redirectPath]);
+  }, [appleAvailable, busy, disabled, isApple, label, onChanged, provider, redirectPath, syncing]);
 
   const handleDisconnect = useCallback(async () => {
-    if (busy) return;
+    if (busy || syncing) return;
     setBusy(true);
     try {
       await disconnectOAuth(provider);
@@ -233,7 +279,7 @@ function ProviderRow({ provider, label, iconSrc, status, redirectPath, onChanged
     } finally {
       setBusy(false);
     }
-  }, [busy, isApple, label, onChanged, provider]);
+  }, [busy, isApple, label, onChanged, provider, syncing]);
 
   const pill = needsReconnect ? (
     <Badge variant="outline" className="bg-foreground/5 text-foreground/70 border-border text-[10px]">
@@ -260,41 +306,74 @@ function ProviderRow({ provider, label, iconSrc, status, redirectPath, onChanged
             <span className="font-medium truncate">{label}</span>
             {pill}
           </div>
-          <span className="text-xs text-muted-foreground truncate">
+          <span className={`text-xs truncate ${staleWarning || needsReconnect ? 'text-amber-700 font-medium' : 'text-muted-foreground'}`}>
             {isApple && !appleAvailable
               ? 'Available in the iOS app'
               : status?.status === 'unknown'
                 ? 'Status unavailable'
-                : connected
-                  ? lastSyncLabel ? `Last sync ${lastSyncLabel}` : 'Connected'
-                  : needsReconnect
-                    ? 'Permission revoked'
+                : needsReconnect
+                  ? staleWarning ?? 'Session expired — reconnect'
+                  : connected
+                    ? staleWarning
+                      ? staleWarning
+                      : !isApple
+                        ? lastSyncLabel ? `Last sync ${lastSyncLabel} · Updates automatically` : 'Connected · Updates automatically'
+                        : lastSyncLabel ? `Last sync ${lastSyncLabel}` : 'Connected'
                     : 'Not connected'}
           </span>
         </div>
       </div>
-      <div>
+      <div className="flex items-center gap-1.5 shrink-0">
         {status?.status === 'unknown' ? (
           // We don't know the real state — do NOT show a Connect action that
           // would misleadingly imply the provider is disconnected.
           <Button size="sm" variant="ghost" disabled aria-label="Status unavailable">
             —
           </Button>
-        ) : connected || needsReconnect ? (
+        ) : connected ? (
+          <>
+            {!isApple && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSyncNow}
+                disabled={busy || syncing || disabled}
+                aria-label={`Sync ${label} now`}
+                className="text-xs h-8 px-2.5"
+              >
+                {syncing ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                ) : (
+                  <RotateCw className="w-3.5 h-3.5 mr-1" />
+                )}
+                Sync now
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleDisconnect}
+              disabled={busy || syncing || disabled}
+              className="text-xs h-8 px-2.5 text-muted-foreground hover:text-foreground"
+            >
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Disconnect'}
+            </Button>
+          </>
+        ) : needsReconnect ? (
           <Button
             size="sm"
-            variant={needsReconnect ? 'default' : 'ghost'}
-            onClick={needsReconnect ? handleConnect : handleDisconnect}
-            disabled={busy || disabled}
+            variant="default"
+            onClick={handleConnect}
+            disabled={busy || syncing || disabled}
           >
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : needsReconnect ? 'Reconnect' : 'Disconnect'}
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Reconnect'}
           </Button>
         ) : (
           <Button
             size="sm"
             variant="outline"
             onClick={handleConnect}
-            disabled={busy || disabled || (isApple && !appleAvailable)}
+            disabled={busy || syncing || disabled || (isApple && !appleAvailable)}
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Connect'}
           </Button>

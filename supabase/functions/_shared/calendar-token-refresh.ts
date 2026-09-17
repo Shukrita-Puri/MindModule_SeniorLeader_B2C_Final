@@ -34,6 +34,7 @@
  */
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildAuthFailureUpdate } from './rules/calendar-connection-state.ts';
 
 // ========== AES-256-GCM helpers ==========
 function b64ToBytes(b64: string): Uint8Array {
@@ -344,7 +345,11 @@ export async function ensureFreshAccessToken(
   if (!connection.refresh_token_enc || !refreshIv) {
     await serviceClient
       .from('calendar_connections')
-      .update({ is_active: false })
+      .update(buildAuthFailureUpdate({
+        message: 'No refresh token available. Reconnect required.',
+        reason: 'no_access_token_and_no_refresh_token',
+        now,
+      }))
       .eq('id', connection.id);
     return {
       outcome: 'reconnect_required',
@@ -363,7 +368,11 @@ export async function ensureFreshAccessToken(
   } catch {
     await serviceClient
       .from('calendar_connections')
-      .update({ is_active: false })
+      .update(buildAuthFailureUpdate({
+        message: 'Failed to decrypt refresh token. Reconnect required.',
+        reason: 'refresh_decrypt_failed',
+        now,
+      }))
       .eq('id', connection.id);
     return {
       outcome: 'reconnect_required',
@@ -374,7 +383,11 @@ export async function ensureFreshAccessToken(
   if (!refreshToken) {
     await serviceClient
       .from('calendar_connections')
-      .update({ is_active: false })
+      .update(buildAuthFailureUpdate({
+        message: 'Refresh token empty. Reconnect required.',
+        reason: 'no_access_token_and_no_refresh_token',
+        now,
+      }))
       .eq('id', connection.id);
     return {
       outcome: 'reconnect_required',
@@ -403,7 +416,13 @@ export async function ensureFreshAccessToken(
   if (refreshResult.kind === 'permanent') {
     await serviceClient
       .from('calendar_connections')
-      .update({ is_active: false })
+      .update(buildAuthFailureUpdate({
+        message: refreshResult.providerError
+          ? `Token refresh rejected: ${refreshResult.providerError}`
+          : 'Calendar session expired. Please reconnect your calendar.',
+        reason: 'refresh_rejected',
+        now,
+      }))
       .eq('id', connection.id);
     return {
       outcome: 'reconnect_required',

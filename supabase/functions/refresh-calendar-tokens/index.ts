@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import { isAuthorizedCronCaller, cronForbiddenResponse } from "../_shared/cron-auth.ts";
+import { buildAuthFailureUpdate } from "../_shared/rules/calendar-connection-state.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -123,7 +124,10 @@ serve(async (req) => {
         const refreshIv = conn.refresh_token_iv || conn.token_iv;
         if (!refreshIv) {
           console.warn('[refresh-calendar-tokens] reconnect_required:no_iv user:', redactUserId(conn.user_id));
-          await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
+          await serviceClient.from('calendar_connections').update(buildAuthFailureUpdate({
+            message: 'No refresh token IV. Reconnect required.',
+            reason: 'no_iv',
+          })).eq('id', conn.id);
           reconnectCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: 'no_iv' });
           continue;
@@ -135,7 +139,10 @@ serve(async (req) => {
           refreshToken = dec.token;
         } catch (e) {
           console.error('[refresh-calendar-tokens] reconnect_required:refresh_decrypt_failed user:', redactUserId(conn.user_id), e);
-          await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
+          await serviceClient.from('calendar_connections').update(buildAuthFailureUpdate({
+            message: 'Failed to decrypt refresh token. Reconnect required.',
+            reason: 'refresh_decrypt_failed',
+          })).eq('id', conn.id);
           reconnectCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: 'refresh_decrypt_failed' });
           continue;
@@ -143,7 +150,10 @@ serve(async (req) => {
 
         if (!refreshToken) {
           console.warn('[refresh-calendar-tokens] reconnect_required:null_refresh_token user:', redactUserId(conn.user_id));
-          await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
+          await serviceClient.from('calendar_connections').update(buildAuthFailureUpdate({
+            message: 'Refresh token empty. Reconnect required.',
+            reason: 'null_refresh_token',
+          })).eq('id', conn.id);
           reconnectCount++;
           details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: 'null_refresh_token' });
           continue;
@@ -166,7 +176,10 @@ serve(async (req) => {
 
           if (refreshData.error) {
             console.error('[refresh-calendar-tokens] token_refresh_failed user:', redactUserId(conn.user_id), 'error:', refreshData.error);
-            await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
+            await serviceClient.from('calendar_connections').update(buildAuthFailureUpdate({
+              message: `Google token refresh failed: ${refreshData.error}`,
+              reason: `refresh_failed:${refreshData.error}`,
+            })).eq('id', conn.id);
             reconnectCount++;
             details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: `refresh_failed:${refreshData.error}` });
             continue;
@@ -213,7 +226,10 @@ serve(async (req) => {
 
           if (refreshData.error) {
             console.error('[refresh-calendar-tokens] microsoft token_refresh_failed user:', redactUserId(conn.user_id), 'error:', refreshData.error);
-            await serviceClient.from('calendar_connections').update({ is_active: false }).eq('id', conn.id);
+            await serviceClient.from('calendar_connections').update(buildAuthFailureUpdate({
+              message: `Microsoft token refresh failed: ${refreshData.error}`,
+              reason: `refresh_failed:${refreshData.error}`,
+            })).eq('id', conn.id);
             reconnectCount++;
             details.push({ userId: conn.user_id, provider: conn.provider, outcome: 'reconnect_required', reason: `refresh_failed:${refreshData.error}` });
             continue;

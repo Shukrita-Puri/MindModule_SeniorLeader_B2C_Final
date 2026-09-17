@@ -43,8 +43,7 @@ Deno.serve(async (req) => {
     const { data: calendarConns, error: calError } = await db
       .from("calendar_connections")
       .select("id, provider, is_active, last_sync, sync_status, last_error, last_error_reason, last_error_at, last_sync_delayed_at, retry_after_seconds, next_retry_at, consecutive_delay_count")
-      .eq("user_id", userId)
-      .eq("is_active", true);
+      .eq("user_id", userId);
 
     console.log("[check-connections-status] Calendar query result:", JSON.stringify({ calendarConns, calError }));
     if (calError) {
@@ -66,7 +65,12 @@ Deno.serve(async (req) => {
     const googleConn = calendarQueryFailed ? null : (calendarConns ?? []).find((c) => c.provider === "google") ?? null;
     const microsoftConn = calendarQueryFailed ? null : (calendarConns ?? []).find((c) => c.provider === "microsoft") ?? null;
     const appleConn = calendarQueryFailed ? null : (calendarConns ?? []).find((c) => c.provider === "apple") ?? null;
-    const primaryConn = googleConn ?? microsoftConn ?? appleConn; // backwards-compat single field
+    const activeConns = (calendarConns ?? []).filter((c) => c.is_active);
+    const primaryActiveConn = activeConns.find((c) => c.provider === "google")
+      ?? activeConns.find((c) => c.provider === "microsoft")
+      ?? activeConns.find((c) => c.provider === "apple")
+      ?? null;
+    const primaryConn = primaryActiveConn ?? googleConn ?? microsoftConn ?? appleConn; // backwards-compat single field
 
     // Additive quota-scope debug surface. Never affects `connected` or
     // `status`; only exposes shared cooldown timing so the UI/debug
@@ -110,7 +114,19 @@ Deno.serve(async (req) => {
     const providerStatus = (conn: typeof googleConn):
       "connected" | "disconnected" | "unknown" => {
       if (calendarQueryFailed) return "unknown";
-      return conn ? "connected" : "disconnected";
+      return conn && conn.is_active ? "connected" : "disconnected";
+    };
+
+    const isReconnectRequired = (conn: typeof googleConn): boolean => {
+      if (!conn) return false;
+      return !conn.is_active && (
+        conn.sync_status === 'error' ||
+        (typeof conn.last_error_reason === 'string' && (
+          conn.last_error_reason.includes('refresh') ||
+          conn.last_error_reason === 'no_refresh_token' ||
+          conn.last_error_reason === 'no_access_token_and_no_refresh_token'
+        ))
+      );
     };
 
     // Check Oura connection (full state model).
@@ -272,9 +288,10 @@ Deno.serve(async (req) => {
 
     const result = {
       calendar: {
-        connected: !!primaryConn,
+        connected: !!primaryActiveConn,
         provider: primaryConn?.provider || null,
         lastSync: primaryConn?.last_sync || null,
+        needsReconnect: isReconnectRequired(googleConn) || isReconnectRequired(microsoftConn),
         // 'ok' when the connections query succeeded, 'error' when it didn't.
         status: calendarQueryFailed ? "error" : "ok",
         // Present only on transient failure; safe for clients to key off.
@@ -283,8 +300,9 @@ Deno.serve(async (req) => {
           : {}),
         providers: {
           google: {
-            connected: !!googleConn,
+            connected: !!googleConn && googleConn.is_active === true,
             status: providerStatus(googleConn),
+            needsReconnect: isReconnectRequired(googleConn),
             lastSync: googleConn?.last_sync || null,
             syncStatus: googleConn?.sync_status ?? null,
             lastError: googleConn?.last_error ?? null,
@@ -297,8 +315,9 @@ Deno.serve(async (req) => {
             ...(googleConn ? scopeDebugFor('google') : {}),
           },
           microsoft: {
-            connected: !!microsoftConn,
+            connected: !!microsoftConn && microsoftConn.is_active === true,
             status: providerStatus(microsoftConn),
+            needsReconnect: isReconnectRequired(microsoftConn),
             lastSync: microsoftConn?.last_sync || null,
             syncStatus: microsoftConn?.sync_status ?? null,
             lastError: microsoftConn?.last_error ?? null,
