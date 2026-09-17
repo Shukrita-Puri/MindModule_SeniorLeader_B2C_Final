@@ -108,13 +108,17 @@ serve(async (req) => {
         if (!hasWatch && !hasAppleCal) continue;
 
         const localDate = parts.localDate;
+        // Periodic sweeps dedupe per local hour; early morning dedupes per day.
+        const logPrefix = isPeriodic
+          ? `daytime_sync_${localDate}_h${String(parts.hour).padStart(2, "0")}`
+          : `early_morning_sync_${localDate}`;
         
-        // Fetch all successful sync logs for this user today
+        // Fetch all successful sync logs for this user in the current bucket
         const { data: existingLogs } = await supabase
           .from("notification_log")
           .select("notification_type")
           .eq("user_id", user.id)
-          .like("notification_type", `early_morning_sync_${localDate}_%`);
+          .like("notification_type", `${logPrefix}_%`);
           
         const successfulTokens = new Set((existingLogs || []).map(l => l.notification_type));
         
@@ -127,7 +131,7 @@ serve(async (req) => {
           const hashHex = Array.from(new Uint8Array(hashBuffer))
             .map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
             
-          const dedupeKey = `early_morning_sync_${localDate}_${hashHex}`;
+          const dedupeKey = `${logPrefix}_${hashHex}`;
           
           if (successfulTokens.has(dedupeKey)) continue;
           
