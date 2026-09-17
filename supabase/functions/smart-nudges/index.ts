@@ -2955,7 +2955,10 @@ export function buildImmediateContextBlock(
       );
     }
     if (w.rhrElevated) lines.push(`Resting heart rate is elevated today.`);
-    if (typeof w.totalSleepMinutes === "number") {
+    // Only offer sleep when the sleep score is also present: the post-generation
+    // validator rejects any copy mentioning sleep while sleepScore is null.
+    if (typeof w.totalSleepMinutes === "number" && w.sleepScore !== null &&
+      w.sleepScore !== undefined) {
       lines.push(`Slept ${(w.totalSleepMinutes / 60).toFixed(1)}h last night.`);
     }
   }
@@ -2970,17 +2973,21 @@ export function buildImmediateContextBlock(
     );
   }
 
-  try {
-    const hit = findEventPattern(ctx.pattern, anchorTitle);
-    if (hit && hit.n >= 2) {
-      const dir = hit.hrvDeltaPct < 0 ? "drops" : "rises";
-      lines.push(
-        `Pattern (${hit.confidence}, n=${hit.n}): across their last ${hit.n} events like this, HRV ${dir} ${
-          Math.abs(Math.round(hit.hrvDeltaPct))
-        }%${hit.rhrElevated ? " with heart rate elevated" : ""}.`,
-      );
-    }
-  } catch { /* pattern store optional */ }
+  // The pattern line cites HRV and a percentage, both of which the
+  // post-generation validators reject unless today's wearable HRV is present.
+  if (ctx.hasWearableData && ctx.wearable.hrvDeltaPct !== null) {
+    try {
+      const hit = findEventPattern(ctx.pattern, anchorTitle);
+      if (hit && hit.n >= 2) {
+        const dir = hit.hrvDeltaPct < 0 ? "drops" : "rises";
+        lines.push(
+          `Pattern (${hit.confidence}, n=${hit.n}): across their last ${hit.n} events like this, HRV ${dir} ${
+            Math.abs(Math.round(hit.hrvDeltaPct))
+          }%${hit.rhrElevated ? " with heart rate elevated" : ""}.`,
+        );
+      }
+    } catch { /* pattern store optional */ }
+  }
 
   if (lines.length === 0) return "";
   return `\n\n=== IMMEDIATE CONTEXT (optional — use only if it makes the notification more specific; never invent, never required) ===\n${
