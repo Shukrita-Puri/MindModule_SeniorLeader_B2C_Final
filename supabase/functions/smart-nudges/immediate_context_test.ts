@@ -44,7 +44,7 @@ Deno.test("immediate context names wearable + readiness facts when present", () 
     ctxWith({
       hasWearableData: true,
       wearable: {
-        sleepScore: null,
+        sleepScore: 78,
         hrv: 42,
         rhr: 61,
         hrvBaseline30d: 55,
@@ -64,6 +64,27 @@ Deno.test("immediate context names wearable + readiness facts when present", () 
   assert(block.includes("Readiness state: strained (48)"), block);
   // Never a requirement — it is presented as optional context.
   assert(block.includes("never required"), block);
+});
+
+Deno.test("immediate context omits sleep when no sleep score exists", () => {
+  const block = buildImmediateContextBlock(
+    ctxWith({
+      hasWearableData: true,
+      wearable: {
+        sleepScore: null,
+        hrv: 42,
+        rhr: 61,
+        hrvBaseline30d: 55,
+        rhrBaseline30d: 57,
+        hrvDeltaPct: -18,
+        rhrElevated: true,
+        totalSleepMinutes: 372,
+      },
+    }),
+    null,
+  );
+  assert(!block.toLowerCase().includes("slept"), block);
+  assert(block.includes("18% below"), block);
 });
 
 Deno.test("immediate context cites a pattern only with enough observations", () => {
