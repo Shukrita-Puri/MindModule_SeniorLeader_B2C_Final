@@ -36,6 +36,20 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
   );
 
+  // mode=periodic → daytime refresh sweep (once per local hour, 07:00–22:59).
+  // Default (early-morning) behaviour is unchanged.
+  let mode = "early_morning";
+  try {
+    const raw = await req.text();
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.mode === "periodic") mode = "periodic";
+    }
+  } catch (_e) {
+    // no/invalid body → keep default mode
+  }
+  const isPeriodic = mode === "periodic";
+
   try {
     // Active iOS/iPadOS device tokens live in notification_device_tokens.
     const { data: tokenRows, error: tokensErr } = await supabase
@@ -77,8 +91,12 @@ serve(async (req) => {
       const tz = tzInfo.circadianTimezone || tzInfo.effectiveTimezone;
       const parts = localParts(tz);
       
-      // Target: 04:45 local. Give a 15 min window (04:45 to 04:59)
-      if ((parts.hour === 4 && parts.minute >= 45) || (parts.hour === 5 && parts.minute <= 30)) {
+      // Early morning: 04:45 local (window 04:45–05:30).
+      // Periodic: any waking local hour, deduped to one silent push per hour.
+      const inWindow = isPeriodic
+        ? parts.hour >= 7 && parts.hour <= 22
+        : (parts.hour === 4 && parts.minute >= 45) || (parts.hour === 5 && parts.minute <= 30);
+      if (inWindow) {
         // Check if they actually have a native integration connected
         const [watchRes, calRes] = await Promise.all([
           supabase.from("user_integrations").select("watch_connection_status").eq("user_id", user.id).maybeSingle(),
@@ -90,13 +108,17 @@ serve(async (req) => {
         if (!hasWatch && !hasAppleCal) continue;
 
         const localDate = parts.localDate;
+        // Periodic sweeps dedupe per local hour; early morning dedupes per day.
+        const logPrefix = isPeriodic
+          ? `daytime_sync_${localDate}_h${String(parts.hour).padStart(2, "0")}`
+          : `early_morning_sync_${localDate}`;
         
-        // Fetch all successful sync logs for this user today
+        // Fetch all successful sync logs for this user in the current bucket
         const { data: existingLogs } = await supabase
           .from("notification_log")
           .select("notification_type")
           .eq("user_id", user.id)
-          .like("notification_type", `early_morning_sync_${localDate}_%`);
+          .like("notification_type", `${logPrefix}_%`);
           
         const successfulTokens = new Set((existingLogs || []).map(l => l.notification_type));
         
@@ -109,7 +131,7 @@ serve(async (req) => {
           const hashHex = Array.from(new Uint8Array(hashBuffer))
             .map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
             
-          const dedupeKey = `early_morning_sync_${localDate}_${hashHex}`;
+          const dedupeKey = `${logPrefix}_${hashHex}`;
           
           if (successfulTokens.has(dedupeKey)) continue;
           
