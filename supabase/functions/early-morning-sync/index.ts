@@ -36,6 +36,20 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
   );
 
+  // mode=periodic → daytime refresh sweep (once per local hour, 07:00–22:59).
+  // Default (early-morning) behaviour is unchanged.
+  let mode = "early_morning";
+  try {
+    const raw = await req.text();
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.mode === "periodic") mode = "periodic";
+    }
+  } catch (_e) {
+    // no/invalid body → keep default mode
+  }
+  const isPeriodic = mode === "periodic";
+
   try {
     // Active iOS/iPadOS device tokens live in notification_device_tokens.
     const { data: tokenRows, error: tokensErr } = await supabase
@@ -77,8 +91,12 @@ serve(async (req) => {
       const tz = tzInfo.circadianTimezone || tzInfo.effectiveTimezone;
       const parts = localParts(tz);
       
-      // Target: 04:45 local. Give a 15 min window (04:45 to 04:59)
-      if ((parts.hour === 4 && parts.minute >= 45) || (parts.hour === 5 && parts.minute <= 30)) {
+      // Early morning: 04:45 local (window 04:45–05:30).
+      // Periodic: any waking local hour, deduped to one silent push per hour.
+      const inWindow = isPeriodic
+        ? parts.hour >= 7 && parts.hour <= 22
+        : (parts.hour === 4 && parts.minute >= 45) || (parts.hour === 5 && parts.minute <= 30);
+      if (inWindow) {
         // Check if they actually have a native integration connected
         const [watchRes, calRes] = await Promise.all([
           supabase.from("user_integrations").select("watch_connection_status").eq("user_id", user.id).maybeSingle(),
