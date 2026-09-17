@@ -1,67 +1,46 @@
-# Light day = stakes, not meeting count. Plus: lapsed users keep the full cadence
+# Make Google and Outlook calendars sync on their own
 
-## Why today was classified as NOT a light day — and why that is wrong
+## What I found
 
-Her run today recorded, verbatim:
+Everything needed to sync Google and Outlook calendars in the background already exists in the app: the connect flow, the sync job, the token refresh job, the change-watch registration, and a "Last sync" line in settings.
 
-```text
-[availability] state=LIGHT_ROUTINE isRestDay=false reason=workday_light_routine country=GB
-[light-day]    isLightDay=false meetings=3 reason=packed_day_meeting_count_gate
-```
+The background jobs are not running. The scheduled tasks that should refresh tokens and pull meetings every 10–30 minutes are being turned away by the app's own security check, every single time:
 
-The light-day rule counts **timed meetings only** and hard-stops at two or more, regardless of what those meetings are. Her three (Future NEDs 12:30, Pitch Clinic 16:00, Chief UK In Transition 18:00) are all low-stakes educational sessions — informational load, nothing consequential — so the day should read as light. The count gate overrode that.
+- The task fires on schedule and gets back `403 forbidden`.
+- The sync task has produced no activity log at all.
+- Result: the newest Google meeting stored is from 3 September, no Outlook meeting has ever been stored, and every stored Google/Outlook access token expired weeks ago.
 
-Consequence: her day went down the ordinary working-day path, her morning reminder was pinned to a window anchored 90 minutes before a 12:30 meeting, and nothing shipped all morning. On the light-day path she would have had a guaranteed morning and evening send.
+Only Apple Calendar is current (it syncs from the phone), which is why iPhone users look fine and everyone else has no meetings behind their reminders.
 
-## Change 1 — the light-day gate counts high-stakes meetings
+## Changes
 
-In the shared light-day rule (`_shared/availability/light-day.ts`), replace the "2+ timed meetings is never light" gate with "2+ **high-stakes** timed meetings is never light":
+### 1. Let the scheduled jobs through (the actual fix)
 
-- Stakes come from the single A–H event resolver already used everywhere — no new taxonomy, no title guessing in this file.
-- Callers (reminders, plan, brief) already build the event array; they gain the resolved stakes/category per event, which they already resolve elsewhere in the same run.
-- Everything else in the rule is untouched: travel days and all-day conferences still override; weekends, holidays and time off behave exactly as now; the last day of any off-run is still excluded and keeps week-ahead behaviour.
-- Fail-safe: if stakes cannot be resolved for an event, it counts as high-stakes — i.e. the day falls back to today's behaviour rather than becoming light by accident.
+Five scheduled tasks are missing the credential the functions require, so they are all rejected: token refresh, calendar sync, calendar change-watch, plus the plan-card and Oura/session housekeeping ones that share the same check. Recreate those schedules so they send the shared secret the functions expect, matching the schedules that already work today (travel sync, early-morning sync, recovery push).
 
-Effect on her day: 0 high-stakes meetings → light day → guaranteed morning + evening.
+No function code changes here — the check stays as strict as it is now.
 
-## Change 2 — light day cadence is a blanket rule
+### 2. Recover the connections that went stale while sync was down
 
-Confirming and enforcing what we agreed, with no conditions attached:
+Once the jobs run again, some connections will need the person to reconnect (their refresh token was invalidated after weeks of failure). For those:
+- Mark the connection as needing reconnect rather than silently failing.
+- Surface it through the existing "Reconnect" state in settings and the existing connection-recovery prompt — no new mechanism.
 
-- Every light day sends **morning and evening**. Always. It is habit formation, not information delivery.
-- A high-stakes commitment in the morning or evening replaces that window's recovery send (still two). A high-stakes afternoon commitment adds an anchored afternoon send (three).
-- One send per window; the daily ceiling is unchanged.
-- The plan follows the same shape on a light day, as today.
+### 3. Sync status in settings
 
-## Change 3 — lapsed leaders get the same cadence, never less
+The provider rows on the Connected Data / Profile screen already show Connected and "Last sync 2h ago". Add to that same row, without changing the layout style:
+- An "Updates automatically" note on Google and Outlook, so it is clear a connected calendar keeps working when the app is closed.
+- A plain warning when the last sync is more than 24 hours old ("Not updated since Tuesday — reconnect"), so a silent failure is visible instead of invisible.
+- A "Sync now" action on Google and Outlook rows that runs the existing sync and refreshes the line.
 
-She has not checked in since 10 September. Nothing in the engine treats that as a reason to send *more*, and several paths quietly send *less* when today's data is thin.
+### 4. Verify on real accounts
 
-Rule: absence of a check-in never reduces or blocks a reminder. A leader who has been away receives exactly what they would receive if they had checked in — same slots, same guarantees.
+After each step, replay live data: confirm the scheduled run returns success counts instead of forbidden, confirm fresh Google and Outlook meetings land in storage, and confirm a reminder for a non-iPhone account names a real meeting.
 
-- No tiers, no day-count thresholds, no separate win-back message type.
-- Copy is built from whatever genuinely synced without the app being opened — calendar (Google/Outlook/Apple subscription feeds) syncs server-side, so meeting count, named meeting and day shape are always available.
-- Data that only syncs when the app opens — Apple Health, and therefore heart-rate/sleep and the readiness score — is simply absent from the text. It is never a precondition for sending.
-- The guaranteed last-resort text already exists behind every reminder, so a lapsed leader's day cannot end silent.
+## Technical notes
 
-## Change 4 — the morning window must sit inside the morning
-
-Her morning window was anchored 90 minutes before a 12:30 meeting (roughly 10:00–12:25 local) while a run only counts as "morning" below 12:00. Every 15-minute run today from 08:45 to 11:45 produced zero qualified reminders and nothing failed at delivery, so the window is the prime suspect — but the records don't log the computed window, so it isn't proven yet.
-
-First step, additive only: record the morning-window decision (window start, window end, local time, the meeting it anchored on, and the reason nothing qualified). Then guarantee that the window always contains at least one usable slot inside the morning period, so a leader whose first meeting is at 12:30 still gets a morning reminder. The anchoring rule itself (60–90 minutes before the first meeting, never before 08:00) stays.
-
-## Why her reminders carry no wearable / readiness / pattern context — confirmed
-
-1. **Wearable data is six days stale** — newest daily summary dated 10 Sep, with no HRV and no sleep values. Stale data is treated as absent by design.
-2. **No readiness score exists** — today's and yesterday's records read `awaiting`, both score fields empty.
-3. **Her patterns don't match today's meetings** — stored: Travel (resting heart rate +26%, 2 occurrences), Influence & Persuasion (+10%, 2), Deep Work & Strategy (heart-rate lift 26 bpm, 3). Separately, that richest store — the heart-rate-lift findings Insights cites — is not read by the reminder context block at all.
-
-Additive fix: let the reminder context block also read the heart-rate-lift findings, matched on the meeting's own category. Offered context, never required; with no data the text is exactly as today. Note the block only reaches AI-written copy — built-in text never carries it.
-
-## Safety
-
-- Change 1 touches a rule shared by reminders, plan and brief. It only ever moves days from "not light" to "light" for low-stakes days; no day that is light today stops being light. Verified by replaying real accounts before deploy.
-- No schema change, no frontend change, no copy rewritten.
-- `deno check` clean; existing light-day, plan, brief and reminder suites stay green.
-- New tests: three low-stakes meetings → light day; two high-stakes meetings → not light; one high-stakes plus two low → light with an anchored window; unresolvable stakes → not light; a light day always yields morning + evening; a leader with no check-in for a week gets the same sends as one who checked in; a 12:30-first-meeting day has a morning window inside the morning period.
-- Deploy order, each on its own: readiness/brief, plan, reminders — then read one live run per surface.
+- `cron.job` entries 1, 2, 5 (`refresh-calendar-tokens`, `sync-calendar-scheduled`, `register-calendar-watch-daily`) lack the `x-cron-secret` header; `_shared/cron-auth.ts` accepts only the service-role bearer or that header, so `net._http_response` shows `{"error":"forbidden"}` on every tick. Recreate via migration using the same vault-secret pattern as jobid 17/18.
+- Jobs 3, 6, 7, 13, 14, 9 also lack the header — audit each against its function's auth check and fix the ones that are being rejected, in the same migration.
+- Stale-token handling already exists in `sync-calendar` / `_shared/calendar-token-refresh.ts` and `_shared/connection-recovery.ts`; wire outcomes to it rather than adding logic.
+- UI edits limited to `src/components/calendar/CalendarProviderPicker.tsx` (ProviderRow copy + optional sync action), reading `lastSync` already returned by `check-connections-status`.
+- No schema change. Deploy any touched function alone.
