@@ -30,11 +30,14 @@ Once the jobs run, tokens refresh again. Connections whose refresh token was inv
 
 Also confirm that a sync which finds a deleted meeting removes it from storage, so a cancelled meeting stops appearing in reminders.
 
-### 3. Verify on real accounts
+### 3. Verify on Shukrita's real account — iPhone first, then web
+
+Order of work and testing: get it right on the iPhone path first, then confirm the same on web.
 
 - A scheduled run returns success counts instead of `forbidden`.
-- Fresh Google and Outlook meetings land in storage, and a meeting deleted in Google disappears within one cycle.
-- Shukrita's account shows today's real meetings, and her next reminder names one of them.
+- Fresh Google and Outlook meetings land in storage, and a meeting deleted in Google disappears within one cycle — with the app closed the whole time.
+- On iPhone: her stored meetings match her real calendar, and her next reminder names a meeting that still exists.
+- On web: the same account shows the same meetings, with no stale entry like the deleted AI Conference.
 
 ## Not doing
 
