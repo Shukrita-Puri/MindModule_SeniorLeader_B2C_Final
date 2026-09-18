@@ -1,6 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
-import { callClaudeText, callClaudeWithTools, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 import { frozenAwareFetch } from "../_shared/ai/llm-freeze.ts";
 
