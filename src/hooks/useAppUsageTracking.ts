@@ -150,7 +150,10 @@ export function useAppUsageTracking(): void {
     // First open (or first route of the session) registers the install even
     // when nothing else is queued yet.
     if (queue.length === 0) void flushUsage({});
-    return close;
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      close();
+    };
   }, [pathname]);
 
   // Pause the timer while the app is backgrounded so idle time is not counted.
