@@ -124,8 +124,25 @@ export function useAppUsageTracking(): void {
         durationMs: elapsed,
         localDate: localDateString(),
       });
-      if (queue.length >= 5) void flushUsage();
+      void flushUsage();
     };
+
+    // A full page unload never finishes an unmount flush — record what is
+    // pending while the page is still alive.
+    const onPageHide = () => {
+      const route = currentRoute.current;
+      if (!route) return;
+      const elapsed = accumulated.current + (Date.now() - enteredAt.current);
+      if (elapsed < MIN_TRACKED_MS) return;
+      queue.push({
+        route,
+        enteredAt: new Date(Date.now() - elapsed).toISOString(),
+        durationMs: elapsed,
+        localDate: localDateString(),
+      });
+      void flushUsage();
+    };
+    window.addEventListener('pagehide', onPageHide);
 
     close();
     currentRoute.current = pathname;
