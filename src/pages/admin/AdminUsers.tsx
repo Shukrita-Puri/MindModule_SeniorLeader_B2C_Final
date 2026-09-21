@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { getAuthToken } from '@/services/authTokenService';
 import { useImpersonation } from '@/hooks/useImpersonation';
 import { toast } from 'sonner';
+import AcquisitionPanel from '@/components/admin/AcquisitionPanel';
 
 interface UserRow {
   id: string;
@@ -166,6 +167,8 @@ const AdminUsers = () => {
           </tbody>
         </table>
       </div>
+
+      <AcquisitionPanel />
     </div>
   );
 };

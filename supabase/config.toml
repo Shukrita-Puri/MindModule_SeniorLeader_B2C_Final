@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.apple-notifications]
 verify_jwt = false
+
+[functions.track-app-usage]
+verify_jwt = false
