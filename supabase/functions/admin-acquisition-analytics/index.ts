@@ -1,9 +1,10 @@
 /**
  * Acquisition & engagement snapshot for the admin console.
  *
- * Strictly read-only. Reads the three new analytics tables plus profiles and
- * onboarding_progress. Touches no feature logic and writes nothing except an
- * admin audit entry (it exposes identified user data).
+ * Strictly read-only. Reads the three analytics tables plus profiles and
+ * onboarding_progress and returns ONE ROW PER PERSON (plus one row per
+ * anonymous install that never signed up). Touches no feature logic and writes
+ * nothing except an admin audit entry (it exposes identified user data).
  */
 import { requireAdmin, writeAdminAudit, adminCorsHeaders } from "../_shared/admin-guard.ts";
 
@@ -34,6 +35,34 @@ const ONBOARDING_STEPS: Array<{ key: string; label: string }> = [
   { key: "onboarding_completed_at", label: "Finished" },
 ];
 
+/** Known app sections, mirrored from track-app-usage's allowlist, so a person's
+ *  unused features are visible rather than silently absent. */
+const KNOWN_ROUTES = [
+  "/",
+  "/signup",
+  "/login",
+  "/onboarding",
+  "/executive-home",
+  "/plan",
+  "/daily-check-in",
+  "/check-in-detail",
+  "/recalibrate",
+  "/insights",
+  "/insight-detail",
+  "/profile",
+  "/connected-data",
+  "/refer",
+  "/nudge-settings",
+  "/practice",
+  "/pause",
+  "/presence",
+  "/power-up",
+  "/coach",
+  "/paywall",
+  "/pricing",
+  "/settings",
+];
+
 function dayKey(iso: string | null | undefined): string | null {
   if (!iso) return null;
   return iso.slice(0, 10);
@@ -46,6 +75,66 @@ function median(values: number[]): number {
   return sorted.length % 2 === 0
     ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
     : sorted[mid];
+}
+
+interface RouteAgg {
+  route: string;
+  views: number;
+  durations: number[];
+  totalMs: number;
+  lastSeen: string;
+}
+
+interface PersonAgg {
+  views: number;
+  totalMs: number;
+  days: Set<string>;
+  sessions: Set<string>;
+  routes: Map<string, RouteAgg>;
+  lastActive: string | null;
+}
+
+function emptyAgg(): PersonAgg {
+  return { views: 0, totalMs: 0, days: new Set(), sessions: new Set(), routes: new Map(), lastActive: null };
+}
+
+function addView(agg: PersonAgg, v: any) {
+  agg.views += 1;
+  const ms = Number(v.duration_ms ?? 0);
+  agg.totalMs += ms;
+  const d = dayKey(v.entered_at);
+  if (d) {
+    agg.days.add(d);
+    // A "session" = one device on one day. Good enough for avg minutes/session.
+    agg.sessions.add(`${v.install_id ?? "none"}|${d}`);
+  }
+  const route = String(v.route ?? "other");
+  let r = agg.routes.get(route);
+  if (!r) {
+    r = { route, views: 0, durations: [], totalMs: 0, lastSeen: v.entered_at };
+    agg.routes.set(route, r);
+  }
+  r.views += 1;
+  r.durations.push(ms);
+  r.totalMs += ms;
+  if (v.entered_at > r.lastSeen) r.lastSeen = v.entered_at;
+  if (!agg.lastActive || v.entered_at > agg.lastActive) agg.lastActive = v.entered_at;
+}
+
+function serializePages(agg: PersonAgg) {
+  const used = [...agg.routes.values()]
+    .map((r) => ({
+      route: r.route,
+      views: r.views,
+      avgSeconds: r.views > 0 ? Math.round(r.totalMs / r.views / 1000) : 0,
+      medianSeconds: Math.round(median(r.durations) / 1000),
+      totalMinutes: Math.round(r.totalMs / 60000),
+      lastSeenAt: r.lastSeen,
+    }))
+    .sort((a, b) => b.views - a.views);
+  const usedRoutes = new Set(used.map((u) => u.route));
+  const neverUsed = KNOWN_ROUTES.filter((r) => !usedRoutes.has(r));
+  return { used, neverUsed };
 }
 
 Deno.serve(async (req) => {
@@ -72,9 +161,8 @@ Deno.serve(async (req) => {
       db
         .from("app_installs")
         .select(
-          "install_id, first_seen_at, last_seen_at, platform, country, app_version, notification_opt_in, notification_status, signup_reminders_sent, last_signup_reminder_at, user_id, signup_at",
+          "install_id, first_seen_at, last_seen_at, platform, country, timezone, app_version, notification_opt_in, notification_status, signup_reminders_sent, last_signup_reminder_at, user_id, signup_at",
         )
-        .gte("first_seen_at", since)
         .order("first_seen_at", { ascending: false })
         .limit(5000),
       db
@@ -87,11 +175,7 @@ Deno.serve(async (req) => {
         .from("profiles")
         .select("id, email, full_name, created_at, onboarding_completed_at, subscription_status, subscription_tier")
         .limit(5000),
-      db
-        .from("onboarding_progress")
-        .select("*")
-        .gte("started_at", since)
-        .limit(5000),
+      db.from("onboarding_progress").select("*").limit(5000),
       db
         .from("app_store_downloads")
         .select("download_date, downloads")
@@ -99,181 +183,183 @@ Deno.serve(async (req) => {
         .limit(400),
     ]);
 
-    const installs = (installsRes.data ?? []) as any[];
+    const allInstalls = (installsRes.data ?? []) as any[];
     const views = (viewsRes.data ?? []) as any[];
     const allProfiles = (profilesRes.data ?? []) as any[];
     const onboarding = (onboardingRes.data ?? []) as any[];
     const downloads = (downloadsRes.data ?? []) as any[];
 
-    const profileById = new Map<string, any>();
-    for (const p of allProfiles) profileById.set(p.id, p);
+    const installsInWindow = allInstalls.filter((i) => i.first_seen_at && i.first_seen_at >= since);
 
+    const onboardingByUser = new Map<string, any>();
+    for (const row of onboarding) onboardingByUser.set(String(row.user_id), row);
+
+    // Installs grouped by the user they were linked to (identity context).
+    const installsByUser = new Map<string, any[]>();
+    for (const i of allInstalls) {
+      if (!i.user_id) continue;
+      const list = installsByUser.get(i.user_id) ?? [];
+      list.push(i);
+      installsByUser.set(i.user_id, list);
+    }
+
+    // ── Engagement aggregation ────────────────────────────────────────
+    const byUser = new Map<string, PersonAgg>();
+    const byInstall = new Map<string, PersonAgg>();
+    for (const v of views) {
+      if (v.user_id) {
+        let agg = byUser.get(v.user_id);
+        if (!agg) { agg = emptyAgg(); byUser.set(v.user_id, agg); }
+        addView(agg, v);
+      } else if (v.install_id) {
+        let agg = byInstall.get(v.install_id);
+        if (!agg) { agg = emptyAgg(); byInstall.set(v.install_id, agg); }
+        addView(agg, v);
+      }
+    }
+
+    const quietCutoff = new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString();
+
+    // ── One row per person ────────────────────────────────────────────
+    const people = allProfiles.map((p) => {
+      const agg = byUser.get(p.id) ?? emptyAgg();
+      const installs = installsByUser.get(p.id) ?? [];
+      const firstInstall = installs
+        .slice()
+        .sort((a, b) => String(a.first_seen_at).localeCompare(String(b.first_seen_at)))[0] ?? null;
+      const ob = onboardingByUser.get(String(p.id)) ?? null;
+
+      const steps = ONBOARDING_STEPS.map((s) => ({
+        key: s.key,
+        label: s.label,
+        reachedAt: (ob?.[s.key] as string | null) ?? (s.key === "onboarding_completed_at" ? p.onboarding_completed_at ?? null : null),
+      }));
+      const finished = Boolean(p.onboarding_completed_at || ob?.onboarding_completed_at || ob?.completed_at);
+      const reached = steps.filter((s) => s.reachedAt);
+      const onboardingStage = finished
+        ? "Completed"
+        : reached.length > 0
+          ? reached[reached.length - 1].label
+          : ob?.current_step
+            ? String(ob.current_step)
+            : "Not started";
+
+      const subscribed = ["active", "trialing", "trial"].includes(String(p.subscription_status ?? ""));
+      const funnelStage = subscribed
+        ? "Subscribed"
+        : finished
+          ? "Onboarding finished"
+          : reached.length > 0 || ob
+            ? "Onboarding started"
+            : "Signed up";
+
+      const { used, neverUsed } = serializePages(agg);
+      const sessions = agg.sessions.size;
+      const lastActive = agg.lastActive
+        ?? (firstInstall?.last_seen_at as string | null)
+        ?? null;
+
+      return {
+        kind: "user" as const,
+        userId: p.id,
+        installId: firstInstall?.install_id ?? null,
+        email: p.email ?? null,
+        name: p.full_name ?? null,
+        platform: firstInstall?.platform ?? null,
+        country: firstInstall?.country ?? null,
+        funnelStage,
+        onboardingStage,
+        onboardingSteps: steps,
+        firstOpenAt: firstInstall?.first_seen_at ?? null,
+        signupAt: p.created_at ?? null,
+        lastActiveAt: lastActive,
+        activeDays: agg.days.size,
+        views: agg.views,
+        totalMinutes: Math.round(agg.totalMs / 60000),
+        sessions,
+        avgMinutesPerSession: sessions > 0 ? Math.round((agg.totalMs / sessions / 60000) * 10) / 10 : 0,
+        topRoute: used[0]?.route ?? null,
+        subscriptionStatus: p.subscription_status ?? null,
+        subscriptionTier: p.subscription_tier ?? null,
+        goingQuiet: Boolean(lastActive && lastActive < quietCutoff),
+        pages: used,
+        neverUsedPages: neverUsed,
+        notificationOptIn: Boolean(firstInstall?.notification_opt_in),
+        remindersSent: 0,
+      };
+    });
+
+    // Anonymous installs — opened, never signed up.
+    const anonymousPeople = allInstalls
+      .filter((i) => !i.user_id)
+      .map((i) => {
+        const agg = byInstall.get(i.install_id) ?? emptyAgg();
+        const { used, neverUsed } = serializePages(agg);
+        const sessions = agg.sessions.size;
+        const lastActive = agg.lastActive ?? i.last_seen_at ?? null;
+        return {
+          kind: "install" as const,
+          userId: null,
+          installId: i.install_id,
+          email: null,
+          name: null,
+          platform: i.platform ?? null,
+          country: i.country ?? null,
+          funnelStage: "Opened",
+          onboardingStage: "Not started",
+          onboardingSteps: ONBOARDING_STEPS.map((s) => ({ key: s.key, label: s.label, reachedAt: null })),
+          firstOpenAt: i.first_seen_at ?? null,
+          signupAt: null,
+          lastActiveAt: lastActive,
+          activeDays: agg.days.size,
+          views: agg.views,
+          totalMinutes: Math.round(agg.totalMs / 60000),
+          sessions,
+          avgMinutesPerSession: sessions > 0 ? Math.round((agg.totalMs / sessions / 60000) * 10) / 10 : 0,
+          topRoute: used[0]?.route ?? null,
+          subscriptionStatus: null,
+          subscriptionTier: null,
+          goingQuiet: Boolean(lastActive && lastActive < quietCutoff),
+          pages: used,
+          neverUsedPages: neverUsed,
+          notificationOptIn: Boolean(i.notification_opt_in),
+          remindersSent: i.signup_reminders_sent ?? 0,
+        };
+      });
+
+    const allPeople = [...people, ...anonymousPeople].sort((a, b) =>
+      String(b.lastActiveAt ?? "").localeCompare(String(a.lastActiveAt ?? "")),
+    );
+
+    // ── Funnel summary strip (counts only) ────────────────────────────
     const profilesInWindow = allProfiles.filter((p) => p.created_at && p.created_at >= since);
     const completedInWindow = allProfiles.filter(
       (p) => p.onboarding_completed_at && p.onboarding_completed_at >= since,
     );
+    const onboardingStartedInWindow = onboarding.filter((o) => o.started_at && o.started_at >= since);
     const subscribedInWindow = profilesInWindow.filter((p) =>
       ["active", "trialing", "trial"].includes(String(p.subscription_status ?? "")),
     );
 
-    // ── Funnel ────────────────────────────────────────────────────────
     const funnel = {
-      opens: installs.length,
+      opens: installsInWindow.length,
       signups: profilesInWindow.length,
-      onboardingStarted: onboarding.length,
+      onboardingStarted: onboardingStartedInWindow.length,
       onboardingFinished: completedInWindow.length,
       subscribed: subscribedInWindow.length,
       manualDownloads: downloads.reduce((sum, d) => sum + (d.downloads ?? 0), 0),
     };
 
-    // ── Daily series ──────────────────────────────────────────────────
-    const dayMap = new Map<string, { date: string; opens: number; signups: number; completions: number; downloads: number }>();
-    const ensureDay = (date: string) => {
-      let row = dayMap.get(date);
-      if (!row) {
-        row = { date, opens: 0, signups: 0, completions: 0, downloads: 0 };
-        dayMap.set(date, row);
-      }
-      return row;
-    };
-    for (const i of installs) {
-      const d = dayKey(i.first_seen_at);
-      if (d) ensureDay(d).opens += 1;
-    }
-    for (const p of profilesInWindow) {
-      const d = dayKey(p.created_at);
-      if (d) ensureDay(d).signups += 1;
-    }
-    for (const p of completedInWindow) {
-      const d = dayKey(p.onboarding_completed_at);
-      if (d) ensureDay(d).completions += 1;
-    }
-    for (const d of downloads) {
-      const key = String(d.download_date).slice(0, 10);
-      ensureDay(key).downloads += d.downloads ?? 0;
-    }
-    const daily = [...dayMap.values()].sort((a, b) => a.date.localeCompare(b.date));
-
-    // ── Onboarding drop-off ───────────────────────────────────────────
-    const onboardingSteps = ONBOARDING_STEPS.map((step) => ({
-      key: step.key,
-      label: step.label,
-      reached: onboarding.filter((row) => row[step.key]).length,
-    }));
-    const currentStepCounts = new Map<string, number>();
-    for (const row of onboarding) {
-      if (row.completed_at || row.onboarding_completed_at) continue;
-      const key = String(row.current_step ?? "unknown");
-      currentStepCounts.set(key, (currentStepCounts.get(key) ?? 0) + 1);
-    }
-    const stuckAt = [...currentStepCounts.entries()]
-      .map(([step, count]) => ({ step, count }))
-      .sort((a, b) => b.count - a.count);
-
-    // ── Page usage ────────────────────────────────────────────────────
-    const routeMap = new Map<
-      string,
-      { route: string; views: number; installs: Set<string>; users: Set<string>; durations: number[]; totalMs: number }
-    >();
-    for (const v of views) {
-      const route = String(v.route ?? "other");
-      let entry = routeMap.get(route);
-      if (!entry) {
-        entry = { route, views: 0, installs: new Set(), users: new Set(), durations: [], totalMs: 0 };
-        routeMap.set(route, entry);
-      }
-      entry.views += 1;
-      if (v.install_id) entry.installs.add(v.install_id);
-      if (v.user_id) entry.users.add(v.user_id);
-      const ms = Number(v.duration_ms ?? 0);
-      entry.durations.push(ms);
-      entry.totalMs += ms;
-    }
-    const topPages = [...routeMap.values()]
-      .map((e) => ({
-        route: e.route,
-        views: e.views,
-        uniqueInstalls: e.installs.size,
-        uniqueUsers: e.users.size,
-        avgSeconds: e.views > 0 ? Math.round(e.totalMs / e.views / 1000) : 0,
-        medianSeconds: Math.round(median(e.durations) / 1000),
-        totalMinutes: Math.round(e.totalMs / 60000),
-      }))
-      .sort((a, b) => b.views - a.views);
-
-    // ── Per-person engagement ─────────────────────────────────────────
-    const userMap = new Map<
-      string,
-      { userId: string; views: number; totalMs: number; days: Set<string>; routes: Map<string, number>; lastActive: string }
-    >();
-    for (const v of views) {
-      if (!v.user_id) continue;
-      let entry = userMap.get(v.user_id);
-      if (!entry) {
-        entry = { userId: v.user_id, views: 0, totalMs: 0, days: new Set(), routes: new Map(), lastActive: v.entered_at };
-        userMap.set(v.user_id, entry);
-      }
-      entry.views += 1;
-      entry.totalMs += Number(v.duration_ms ?? 0);
-      const d = dayKey(v.entered_at);
-      if (d) entry.days.add(d);
-      const route = String(v.route ?? "other");
-      entry.routes.set(route, (entry.routes.get(route) ?? 0) + 1);
-      if (v.entered_at > entry.lastActive) entry.lastActive = v.entered_at;
-    }
-    const quietCutoff = new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString();
-    const userEngagement = [...userMap.values()]
-      .map((e) => {
-        const profile = profileById.get(e.userId);
-        const topRoute = [...e.routes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-        return {
-          userId: e.userId,
-          email: profile?.email ?? null,
-          name: profile?.full_name ?? null,
-          lastActive: e.lastActive,
-          activeDays: e.days.size,
-          views: e.views,
-          totalMinutes: Math.round(e.totalMs / 60000),
-          topRoute,
-          onboardingFinished: Boolean(profile?.onboarding_completed_at),
-          subscriptionStatus: profile?.subscription_status ?? null,
-          goingQuiet: e.lastActive < quietCutoff,
-        };
-      })
-      .sort((a, b) => b.totalMinutes - a.totalMinutes);
-
-    // ── Anonymous installs (opened, never signed up) ───────────────────
-    const anonymousInstalls = installs
-      .filter((i) => !i.user_id)
-      .map((i) => ({
-        installId: i.install_id,
-        firstSeenAt: i.first_seen_at,
-        lastSeenAt: i.last_seen_at,
-        platform: i.platform,
-        country: i.country,
-        appVersion: i.app_version,
-        notificationOptIn: Boolean(i.notification_opt_in),
-        notificationStatus: i.notification_status ?? null,
-        remindersSent: i.signup_reminders_sent ?? 0,
-        lastReminderAt: i.last_signup_reminder_at ?? null,
-      }))
-      .slice(0, 200);
-
     return json({
       generatedAt: new Date().toISOString(),
       days,
       funnel,
-      daily,
-      onboardingSteps,
-      stuckAt,
-      topPages,
-      userEngagement,
-      anonymousInstalls,
+      people: allPeople,
       totals: {
-        installsTracked: installs.length,
+        installsTracked: installsInWindow.length,
         screenViewsTracked: views.length,
-        anonymousInstalls: installs.filter((i) => !i.user_id).length,
-        installsOptedIntoNotifications: installs.filter((i) => i.notification_opt_in).length,
+        anonymousInstalls: anonymousPeople.length,
+        installsOptedIntoNotifications: allInstalls.filter((i) => i.notification_opt_in).length,
       },
       manualDownloadsByDate: downloads.map((d) => ({
         date: String(d.download_date).slice(0, 10),

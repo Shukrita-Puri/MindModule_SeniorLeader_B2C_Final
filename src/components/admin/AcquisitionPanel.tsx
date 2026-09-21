@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -15,64 +15,55 @@ interface FunnelData {
   manualDownloads: number;
 }
 
-interface DailyRow {
-  date: string;
-  opens: number;
-  signups: number;
-  completions: number;
-  downloads: number;
-}
-
-interface StepRow { key: string; label: string; reached: number }
-interface StuckRow { step: string; count: number }
-
 interface PageRow {
   route: string;
   views: number;
-  uniqueInstalls: number;
-  uniqueUsers: number;
   avgSeconds: number;
   medianSeconds: number;
   totalMinutes: number;
+  lastSeenAt: string;
 }
 
-interface UserRow {
-  userId: string;
+interface StepRow {
+  key: string;
+  label: string;
+  reachedAt: string | null;
+}
+
+interface PersonRow {
+  kind: 'user' | 'install';
+  userId: string | null;
+  installId: string | null;
   email: string | null;
   name: string | null;
-  lastActive: string;
+  platform: string | null;
+  country: string | null;
+  funnelStage: string;
+  onboardingStage: string;
+  onboardingSteps: StepRow[];
+  firstOpenAt: string | null;
+  signupAt: string | null;
+  lastActiveAt: string | null;
   activeDays: number;
   views: number;
   totalMinutes: number;
+  sessions: number;
+  avgMinutesPerSession: number;
   topRoute: string | null;
-  onboardingFinished: boolean;
   subscriptionStatus: string | null;
+  subscriptionTier: string | null;
   goingQuiet: boolean;
-}
-
-interface InstallRow {
-  installId: string;
-  firstSeenAt: string;
-  lastSeenAt: string;
-  platform: string | null;
-  country: string | null;
-  appVersion: string | null;
+  pages: PageRow[];
+  neverUsedPages: string[];
   notificationOptIn: boolean;
-  notificationStatus: string | null;
   remindersSent: number;
-  lastReminderAt: string | null;
 }
 
 interface Analytics {
   generatedAt: string;
   days: number;
   funnel: FunnelData;
-  daily: DailyRow[];
-  onboardingSteps: StepRow[];
-  stuckAt: StuckRow[];
-  topPages: PageRow[];
-  userEngagement: UserRow[];
-  anonymousInstalls: InstallRow[];
+  people: PersonRow[];
   totals: {
     installsTracked: number;
     screenViewsTracked: number;
@@ -83,7 +74,7 @@ interface Analytics {
 
 const WINDOWS = [7, 30, 60, 90];
 
-function pct(part: number, whole: number): string {
+function pct(part: number, whole: number | null): string {
   if (!whole) return '—';
   return `${Math.round((part / whole) * 100)}%`;
 }
@@ -105,6 +96,8 @@ const AcquisitionPanel = () => {
   const [downloadDate, setDownloadDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [downloadCount, setDownloadCount] = useState('');
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -157,14 +150,6 @@ const AcquisitionPanel = () => {
     }
   };
 
-  const maxDaily = useMemo(() => {
-    if (!data) return 1;
-    return Math.max(
-      1,
-      ...data.daily.map((d) => Math.max(d.opens, d.signups, d.completions, d.downloads)),
-    );
-  }, [data]);
-
   const funnelRows = data
     ? [
         { label: 'App Store downloads (manual)', value: data.funnel.manualDownloads, of: null as number | null },
@@ -176,6 +161,19 @@ const AcquisitionPanel = () => {
       ]
     : [];
 
+  const rows = useMemo(() => {
+    if (!data) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return data.people;
+    return data.people.filter((p) =>
+      [p.email, p.name, p.userId, p.installId]
+        .filter(Boolean)
+        .some((field) => String(field).toLowerCase().includes(q)),
+    );
+  }, [data, search]);
+
+  const rowKey = (p: PersonRow) => p.userId ?? `install:${p.installId}`;
+
   return (
     <section className="space-y-6 rounded-md border border-border p-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -183,11 +181,11 @@ const AcquisitionPanel = () => {
           <h2 className="text-xl font-semibold">Acquisition &amp; engagement</h2>
           <p className="text-sm text-muted-foreground">
             {data
-              ? `Last ${data.days} days · ${data.totals.installsTracked} installs · ${data.totals.screenViewsTracked} screen views · refreshed ${new Date(data.generatedAt).toLocaleTimeString()}`
+              ? `Last ${data.days} days · ${rows.length} rows · ${data.totals.screenViewsTracked} screen views · refreshed ${new Date(data.generatedAt).toLocaleTimeString()}`
               : loading ? 'Loading…' : '—'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {WINDOWS.map((w) => (
             <Button
               key={w}
@@ -202,6 +200,12 @@ const AcquisitionPanel = () => {
           <Button size="sm" variant="secondary" className="h-7 px-3 text-xs" onClick={() => void load()} disabled={loading}>
             Refresh
           </Button>
+          <Input
+            placeholder="Search email, name, or id"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 w-64"
+          />
         </div>
       </header>
 
@@ -209,7 +213,7 @@ const AcquisitionPanel = () => {
 
       {data && (
         <>
-          {/* Funnel */}
+          {/* Funnel summary strip */}
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {funnelRows.map((row) => (
               <div key={row.label} className="rounded-md border border-border/60 bg-muted/20 p-3">
@@ -247,182 +251,159 @@ const AcquisitionPanel = () => {
             </p>
           </div>
 
-          {/* Daily chart */}
-          <div>
-            <h3 className="mb-2 text-sm font-medium">Daily: opens · sign-ups · finished onboarding · downloads</h3>
-            {data.daily.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No activity recorded in this window yet.</p>
-            ) : (
-              <div className="space-y-1">
-                {data.daily.map((d) => (
-                  <div key={d.date} className="flex items-center gap-2 text-xs">
-                    <span className="w-20 shrink-0 text-muted-foreground">{d.date.slice(5)}</span>
-                    <div className="flex-1 space-y-[2px]">
-                      <div className="h-2 rounded-sm bg-primary/70" style={{ width: `${(d.opens / maxDaily) * 100}%` }} />
-                      <div className="h-2 rounded-sm bg-primary/40" style={{ width: `${(d.signups / maxDaily) * 100}%` }} />
-                      <div className="h-2 rounded-sm bg-primary/20" style={{ width: `${(d.completions / maxDaily) * 100}%` }} />
-                      {d.downloads > 0 && (
-                        <div className="h-2 rounded-sm bg-muted-foreground/40" style={{ width: `${(d.downloads / maxDaily) * 100}%` }} />
-                      )}
-                    </div>
-                    <span className="w-40 shrink-0 text-right text-muted-foreground">
-                      {d.opens} / {d.signups} / {d.completions}{d.downloads ? ` / ${d.downloads}` : ''}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Onboarding drop-off */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div>
-              <h3 className="mb-2 text-sm font-medium">Onboarding steps reached</h3>
-              <div className="space-y-1">
-                {data.onboardingSteps.map((s) => {
-                  const base = data.onboardingSteps[0]?.reached || 1;
+          {/* One row per person */}
+          <div className="overflow-x-auto rounded-md border border-border/60">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="py-2 px-3">Name</th>
+                  <th className="py-2 px-3">Email</th>
+                  <th className="py-2 px-3">ID</th>
+                  <th className="py-2 px-3">Platform</th>
+                  <th className="py-2 px-3">Country</th>
+                  <th className="py-2 px-3">Funnel stage</th>
+                  <th className="py-2 px-3">Onboarding stage</th>
+                  <th className="py-2 px-3">First open</th>
+                  <th className="py-2 px-3">Signed up</th>
+                  <th className="py-2 px-3">Last active</th>
+                  <th className="py-2 px-3">Active days</th>
+                  <th className="py-2 px-3">Views</th>
+                  <th className="py-2 px-3">Mins</th>
+                  <th className="py-2 px-3">Avg mins/session</th>
+                  <th className="py-2 px-3">Most-used page</th>
+                  <th className="py-2 px-3">Subscription</th>
+                  <th className="py-2 px-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 && !loading && (
+                  <tr>
+                    <td colSpan={17} className="py-10 text-center text-sm text-muted-foreground">
+                      No people match this search.
+                    </td>
+                  </tr>
+                )}
+                {rows.map((p) => {
+                  const key = rowKey(p);
+                  const isOpen = expanded === key;
                   return (
-                    <div key={s.key} className="flex items-center gap-2 text-xs">
-                      <span className="w-44 shrink-0 text-muted-foreground">{s.label}</span>
-                      <div className="h-2 flex-1 rounded-sm bg-muted">
-                        <div className="h-2 rounded-sm bg-primary/60" style={{ width: `${(s.reached / base) * 100}%` }} />
-                      </div>
-                      <span className="w-10 text-right">{s.reached}</span>
-                    </div>
+                    <Fragment key={key}>
+                      <tr
+                        className="cursor-pointer border-t border-border/60 hover:bg-muted/30"
+                        onClick={() => setExpanded(isOpen ? null : key)}
+                      >
+                        <td className="py-2 px-3 whitespace-nowrap">
+                          <span className="mr-1 text-muted-foreground">{isOpen ? '▾' : '▸'}</span>
+                          {p.name ?? (p.kind === 'install' ? 'Anonymous install' : '—')}
+                        </td>
+                        <td className="py-2 px-3">{p.email ?? '—'}</td>
+                        <td
+                          className="py-2 px-3 font-mono text-xs truncate max-w-[16ch]"
+                          title={p.userId ?? p.installId ?? ''}
+                        >
+                          {p.userId ?? p.installId ?? '—'}
+                        </td>
+                        <td className="py-2 px-3">{p.platform ?? '—'}</td>
+                        <td className="py-2 px-3">{p.country ?? '—'}</td>
+                        <td className="py-2 px-3 whitespace-nowrap">{p.funnelStage}</td>
+                        <td className="py-2 px-3 whitespace-nowrap">{p.onboardingStage}</td>
+                        <td className="py-2 px-3">{fmtDate(p.firstOpenAt)}</td>
+                        <td className="py-2 px-3">{fmtDate(p.signupAt)}</td>
+                        <td className="py-2 px-3">{fmtDate(p.lastActiveAt)}</td>
+                        <td className="py-2 px-3">{p.activeDays}</td>
+                        <td className="py-2 px-3">{p.views}</td>
+                        <td className="py-2 px-3">{p.totalMinutes}</td>
+                        <td className="py-2 px-3">{p.avgMinutesPerSession}</td>
+                        <td className="py-2 px-3 font-mono text-xs">{p.topRoute ?? '—'}</td>
+                        <td className="py-2 px-3">{p.subscriptionStatus ?? '—'}</td>
+                        <td className="py-2 px-3">
+                          {p.views === 0 ? (
+                            <Badge variant="outline">No activity</Badge>
+                          ) : p.goingQuiet ? (
+                            <Badge variant="destructive">Going quiet</Badge>
+                          ) : (
+                            <Badge variant="outline">Active</Badge>
+                          )}
+                        </td>
+                      </tr>
+                      {isOpen && (
+                        <tr className="border-t border-border/60 bg-muted/10">
+                          <td colSpan={17} className="p-4">
+                            <div className="grid gap-6 lg:grid-cols-2">
+                              <div>
+                                <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                  Features used by this person
+                                </h4>
+                                {p.pages.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground">No screen time recorded in this window.</p>
+                                ) : (
+                                  <table className="w-full text-xs">
+                                    <thead className="text-left text-muted-foreground">
+                                      <tr>
+                                        <th className="py-1 pr-3">Page</th>
+                                        <th className="py-1 pr-3">Views</th>
+                                        <th className="py-1 pr-3">Avg</th>
+                                        <th className="py-1 pr-3">Median</th>
+                                        <th className="py-1 pr-3">Total mins</th>
+                                        <th className="py-1 pr-3">Last opened</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {p.pages.map((pg) => (
+                                        <tr key={pg.route} className="border-t border-border/40">
+                                          <td className="py-1 pr-3 font-mono">{pg.route}</td>
+                                          <td className="py-1 pr-3">{pg.views}</td>
+                                          <td className="py-1 pr-3">{pg.avgSeconds}s</td>
+                                          <td className="py-1 pr-3">{pg.medianSeconds}s</td>
+                                          <td className="py-1 pr-3">{pg.totalMinutes}</td>
+                                          <td className="py-1 pr-3">{fmtDate(pg.lastSeenAt)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                )}
+                                {p.neverUsedPages.length > 0 && (
+                                  <p className="mt-2 text-xs text-muted-foreground">
+                                    Never opened: <span className="font-mono">{p.neverUsedPages.join(' · ')}</span>
+                                  </p>
+                                )}
+                              </div>
+                              <div>
+                                <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                  Onboarding steps
+                                </h4>
+                                <table className="w-full text-xs">
+                                  <tbody>
+                                    {p.onboardingSteps.map((s) => (
+                                      <tr key={s.key} className="border-t border-border/40">
+                                        <td className="py-1 pr-3 text-muted-foreground">{s.label}</td>
+                                        <td className="py-1">
+                                          {s.reachedAt
+                                            ? (s.key === 'onboarding_completed_at'
+                                                ? `Completed · ${fmtDate(s.reachedAt)}`
+                                                : fmtDate(s.reachedAt))
+                                            : '—'}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                                {p.kind === 'install' && (
+                                  <p className="mt-2 text-xs text-muted-foreground">
+                                    Opened but never signed up ·{' '}
+                                    {p.notificationOptIn ? `${p.remindersSent} reminder(s) sent` : 'no notification permission'}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
-              </div>
-            </div>
-            <div>
-              <h3 className="mb-2 text-sm font-medium">Still sitting at</h3>
-              {data.stuckAt.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nobody is mid-onboarding.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {data.stuckAt.map((s) => (
-                    <Badge key={s.step} variant="outline">{s.step} · {s.count}</Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Top pages */}
-          <div>
-            <h3 className="mb-2 text-sm font-medium">Pages used most</h3>
-            {data.topPages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No screen time recorded yet.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-md border border-border/60">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="py-2 px-3">Page</th>
-                      <th className="py-2 px-3">Views</th>
-                      <th className="py-2 px-3">People</th>
-                      <th className="py-2 px-3">Devices</th>
-                      <th className="py-2 px-3">Avg time</th>
-                      <th className="py-2 px-3">Median</th>
-                      <th className="py-2 px-3">Total mins</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.topPages.map((p) => (
-                      <tr key={p.route} className="border-t border-border/60">
-                        <td className="py-2 px-3 font-mono text-xs">{p.route}</td>
-                        <td className="py-2 px-3">{p.views}</td>
-                        <td className="py-2 px-3">{p.uniqueUsers}</td>
-                        <td className="py-2 px-3">{p.uniqueInstalls}</td>
-                        <td className="py-2 px-3">{p.avgSeconds}s</td>
-                        <td className="py-2 px-3">{p.medianSeconds}s</td>
-                        <td className="py-2 px-3">{p.totalMinutes}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Per-person engagement */}
-          <div>
-            <h3 className="mb-2 text-sm font-medium">Per-person engagement — your outreach list</h3>
-            {data.userEngagement.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No signed-in activity recorded yet.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-md border border-border/60">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="py-2 px-3">Email</th>
-                      <th className="py-2 px-3">Last active</th>
-                      <th className="py-2 px-3">Active days</th>
-                      <th className="py-2 px-3">Minutes</th>
-                      <th className="py-2 px-3">Most-used page</th>
-                      <th className="py-2 px-3">Onboarded</th>
-                      <th className="py-2 px-3">Subscription</th>
-                      <th className="py-2 px-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.userEngagement.map((u) => (
-                      <tr key={u.userId} className="border-t border-border/60">
-                        <td className="py-2 px-3">{u.email ?? u.userId}</td>
-                        <td className="py-2 px-3">{fmtDate(u.lastActive)}</td>
-                        <td className="py-2 px-3">{u.activeDays}</td>
-                        <td className="py-2 px-3">{u.totalMinutes}</td>
-                        <td className="py-2 px-3 font-mono text-xs">{u.topRoute ?? '—'}</td>
-                        <td className="py-2 px-3">{u.onboardingFinished ? 'Yes' : 'No'}</td>
-                        <td className="py-2 px-3">{u.subscriptionStatus ?? '—'}</td>
-                        <td className="py-2 px-3">
-                          {u.goingQuiet ? <Badge variant="destructive">Going quiet</Badge> : <Badge variant="outline">Active</Badge>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Anonymous installs */}
-          <div>
-            <h3 className="mb-2 text-sm font-medium">
-              Opened but never signed up ({data.totals.anonymousInstalls}) ·{' '}
-              {data.totals.installsOptedIntoNotifications} can be reminded
-            </h3>
-            {data.anonymousInstalls.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Every tracked install has an account.</p>
-            ) : (
-              <div className="overflow-x-auto rounded-md border border-border/60">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="py-2 px-3">First open</th>
-                      <th className="py-2 px-3">Last open</th>
-                      <th className="py-2 px-3">Platform</th>
-                      <th className="py-2 px-3">Country</th>
-                      <th className="py-2 px-3">App version</th>
-                      <th className="py-2 px-3">Reminders</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.anonymousInstalls.map((i) => (
-                      <tr key={i.installId} className="border-t border-border/60">
-                        <td className="py-2 px-3">{fmtDate(i.firstSeenAt)}</td>
-                        <td className="py-2 px-3">{fmtDate(i.lastSeenAt)}</td>
-                        <td className="py-2 px-3">{i.platform ?? '—'}</td>
-                        <td className="py-2 px-3">{i.country ?? '—'}</td>
-                        <td className="py-2 px-3">{i.appVersion ?? '—'}</td>
-                        <td className="py-2 px-3">
-                          {i.notificationOptIn ? `${i.remindersSent} sent` : 'no permission'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+              </tbody>
+            </table>
           </div>
         </>
       )}
