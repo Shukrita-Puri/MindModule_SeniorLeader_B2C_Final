@@ -4,9 +4,10 @@
  * never reach an account holder, and it is entirely separate from the
  * existing reminder engine (no notification_log caps are consumed).
  *
- * Rules: install is at least REMINDER_DELAY_DAYS old, has no linked user,
- * opted into (quiet) notifications, has a device token, at most
- * MAX_REMINDERS sends ever, and at least COOLDOWN_DAYS between sends.
+ * Rules: install has no linked user, opted into (quiet) notifications, has a
+ * device token, is iOS, and has reached the fixed day offset for its next
+ * reminder measured from its own first-open date (day 2, then day 5). At most
+ * MAX_REMINDERS sends ever; a missed run sends late rather than never.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isAuthorizedCronCaller, cronForbiddenResponse } from "../_shared/cron-auth.ts";
@@ -20,9 +21,9 @@ const corsHeaders = {
 };
 
 const NOTIFICATION_TYPE = "install_signup_reminder";
-const REMINDER_DELAY_DAYS = 2;
-const COOLDOWN_DAYS = 3;
-const MAX_REMINDERS = 2;
+/** Days after first open at which reminder 1 and reminder 2 are due. */
+const REMINDER_DAY_OFFSETS = [2, 5] as const;
+const MAX_REMINDERS = REMINDER_DAY_OFFSETS.length;
 const QUIET_START_HOUR = 21;
 const QUIET_END_HOUR = 8;
 

@@ -148,6 +148,10 @@ Deno.serve(async (req) => {
         .eq("id", userId)
         .maybeSingle();
       installRow.signup_at = (profile as any)?.created_at ?? nowIso;
+      // The install now has an account — drop it from the "finish setting up"
+      // reminder list immediately, regardless of what the reminder rules say.
+      installRow.device_token = null;
+      installRow.notification_opt_in = false;
     }
 
     const { error: installError } = await db
