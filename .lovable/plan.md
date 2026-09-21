@@ -48,3 +48,16 @@ Placed directly below the user table on the **Users** page, so it reads in one f
 - Frontend: `src/utils/installId.ts` (persistent random ID), `src/hooks/useAppUsageTracking.ts` mounted once in `App.tsx` (router-location listener + Capacitor app-state pause/resume, batched flush on route change and backgrounding), provisional-permission request added to `Stage1Welcome.tsx` via the existing `requestProvisionalNotificationPermission` helper (no visual change), new `AcquisitionPanel.tsx` rendered under the table in `src/pages/admin/AdminUsers.tsx`.
 - Everything additive. No existing screen, hook, edge function or table is modified apart from mounting the tracker in `App.tsx`, the permission call in `Stage1Welcome.tsx`, and appending the panel to `AdminUsers.tsx`. Tracking failures are always silent.
 - Verify on iPhone first, then web: an open creates an install row with no sign-in, screen views accumulate with sensible durations, signing in links the install, and the admin panel shows the funnel and page times. Then confirm one reminder push reaches a test install that never signed up.
+
+## Safe deployment — nothing in the app changes
+
+The work is admin-only and passive. No existing feature, screen, rule or backend function behaviour is altered.
+
+- **Nothing existing is modified** except three additive lines: mounting a silent tracker in the app shell, one permission call on the welcome screen, and rendering the new panel under the admin user table. No existing component, hook, edge function, table, migration or copy is rewritten.
+- **The tracker is invisible and inert.** It only observes which screen is open and for how long. It renders nothing, blocks nothing, changes no navigation, and never awaits — if it fails or the network is down, it is silently discarded. It cannot affect the brief, plan, reminders, check-ins, sync or paywall.
+- **No changes to the brief, plan, reminders, calendar sync, readiness or subscriptions.** Those functions are not touched and not redeployed.
+- **New backend pieces are separate functions and separate tables.** They read nothing that other features depend on and write only to their own tables, so no existing query, job or schema is affected.
+- **The welcome-screen permission ask is optional and non-blocking.** On iPhone it uses the quiet (provisional) request already in the app — no visible prompt interrupting the flow, no gate on continuing. On web it does nothing.
+- **The "finish setting up" reminder only targets installs with no account.** It can never reach an existing user, and it is a separate job on its own schedule, so the existing reminder engine is untouched.
+- **Rollout order:** new tables first, then the two admin functions and the panel (pure read, zero app impact), then the tracker, then the reminder job last — each deployed on its own and verified before the next. If anything about the tracker is unwelcome, it can be removed by deleting one line, leaving the admin panel working on whatever data was collected.
+- **Verification before finishing:** typecheck, the existing test suite, and a check that the diff contains only new files plus those three additive lines.
