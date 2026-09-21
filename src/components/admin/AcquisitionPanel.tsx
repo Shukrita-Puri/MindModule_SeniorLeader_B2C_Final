@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -287,9 +287,8 @@ const AcquisitionPanel = () => {
                   const key = rowKey(p);
                   const isOpen = expanded === key;
                   return (
-                    <>
+                    <Fragment key={key}>
                       <tr
-                        key={key}
                         className="cursor-pointer border-t border-border/60 hover:bg-muted/30"
                         onClick={() => setExpanded(isOpen ? null : key)}
                       >
@@ -328,7 +327,7 @@ const AcquisitionPanel = () => {
                         </td>
                       </tr>
                       {isOpen && (
-                        <tr key={`${key}-detail`} className="border-t border-border/60 bg-muted/10">
+                        <tr className="border-t border-border/60 bg-muted/10">
                           <td colSpan={17} className="p-4">
                             <div className="grid gap-6 lg:grid-cols-2">
                               <div>
@@ -400,7 +399,7 @@ const AcquisitionPanel = () => {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>
