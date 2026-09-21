@@ -1,19 +1,13 @@
-import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Shield } from "lucide-react";
 import mmLogo from "@/assets/brand/mm-logo-circle.png";
 import heroBg from "@/assets/onboarding/onboarding-welcome-active.jpg";
-import { requestPreSignupNotificationOptIn } from "@/utils/preSignupNotificationOptIn";
 
 export default function Stage1Welcome() {
   const navigate = useNavigate();
 
-  // Quiet (provisional) iOS notification opt-in before sign-in. No visible
-  // prompt, nothing blocking; silent no-op on web.
-  useEffect(() => {
-    void requestPreSignupNotificationOptIn();
-  }, []);
+
 
 
   return (

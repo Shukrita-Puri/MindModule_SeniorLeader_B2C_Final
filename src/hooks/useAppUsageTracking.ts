@@ -95,13 +95,53 @@ export async function flushUsage(extra?: Record<string, unknown>): Promise<void>
   }
 }
 
-/** Records notification opt-in state against the anonymous install. */
+/**
+ * Records notification opt-in state (and the device token) against the
+ * anonymous install. Uses its own request rather than the shared view-batch
+ * flush, so it can never be dropped because a screen-time ping is in flight.
+ * Retries once, then gives up silently.
+ */
 export function recordInstallNotificationState(optIn: boolean, status: string | null, deviceToken?: string | null): void {
-  void flushUsage({
-    notificationOptIn: optIn,
-    notificationStatus: status,
-    ...(deviceToken ? { deviceToken } : {}),
-  });
+  void (async () => {
+    const { timezone, locale, country } = getDeviceLocaleContext();
+    const body = JSON.stringify({
+      installId: getInstallId(),
+      platform: platform(),
+      timezone,
+      locale,
+      country,
+      views: [],
+      notificationOptIn: optIn,
+      notificationStatus: status,
+      ...(deviceToken ? { deviceToken } : {}),
+    });
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        let token: string | null = null;
+        try {
+          token = await Promise.race<string | null>([
+            getAuthToken().catch(() => null),
+            new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 1500)),
+          ]);
+        } catch {
+          token = null;
+        }
+        const res = await fetch(getSupabaseFunctionUrl('track-app-usage'), {
+          method: 'POST',
+          headers: getSupabaseFunctionHeaders(token),
+          body,
+          keepalive: true,
+        });
+        if (res.ok) return;
+      } catch {
+        /* fall through to the single retry */
+      }
+      if (attempt === 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      }
+    }
+  })();
 }
 
 export function useAppUsageTracking(): void {

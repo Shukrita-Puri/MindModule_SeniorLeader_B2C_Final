@@ -4,9 +4,10 @@
  * never reach an account holder, and it is entirely separate from the
  * existing reminder engine (no notification_log caps are consumed).
  *
- * Rules: install is at least REMINDER_DELAY_DAYS old, has no linked user,
- * opted into (quiet) notifications, has a device token, at most
- * MAX_REMINDERS sends ever, and at least COOLDOWN_DAYS between sends.
+ * Rules: install has no linked user, opted into (quiet) notifications, has a
+ * device token, is iOS, and has reached the fixed day offset for its next
+ * reminder measured from its own first-open date (day 2, then day 5). At most
+ * MAX_REMINDERS sends ever; a missed run sends late rather than never.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isAuthorizedCronCaller, cronForbiddenResponse } from "../_shared/cron-auth.ts";
@@ -20,9 +21,9 @@ const corsHeaders = {
 };
 
 const NOTIFICATION_TYPE = "install_signup_reminder";
-const REMINDER_DELAY_DAYS = 2;
-const COOLDOWN_DAYS = 3;
-const MAX_REMINDERS = 2;
+/** Days after first open at which reminder 1 and reminder 2 are due. */
+const REMINDER_DAY_OFFSETS = [2, 5] as const;
+const MAX_REMINDERS = REMINDER_DAY_OFFSETS.length;
 const QUIET_START_HOUR = 21;
 const QUIET_END_HOUR = 8;
 
@@ -84,10 +85,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const cutoff = new Date(Date.now() - REMINDER_DELAY_DAYS * 24 * 3600 * 1000).toISOString();
+    // Earliest offset gates the query; the per-row check applies the exact
+    // offset for that install's next reminder.
+    const cutoff = new Date(
+      Date.now() - REMINDER_DAY_OFFSETS[0] * 24 * 3600 * 1000,
+    ).toISOString();
     const { data, error } = await db
       .from("app_installs")
-      .select("install_id, timezone, device_token, signup_reminders_sent, last_signup_reminder_at, platform")
+      .select("install_id, timezone, device_token, signup_reminders_sent, last_signup_reminder_at, platform, first_seen_at")
       .is("user_id", null)
       .eq("notification_opt_in", true)
       .not("device_token", "is", null)
@@ -99,14 +104,26 @@ Deno.serve(async (req) => {
 
     const candidates = (data ?? []) as any[];
     const jwt = await createApnsJwt(p8, keyId, teamId);
-    const cooldownCutoff = Date.now() - COOLDOWN_DAYS * 24 * 3600 * 1000;
 
     let sent = 0;
     let skipped = 0;
 
     for (const row of candidates) {
       if (row.platform !== "ios") { skipped += 1; continue; }
-      if (row.last_signup_reminder_at && new Date(row.last_signup_reminder_at).getTime() > cooldownCutoff) {
+
+      const alreadySent = Math.max(0, Number(row.signup_reminders_sent ?? 0));
+      if (alreadySent >= MAX_REMINDERS) { skipped += 1; continue; }
+      const dueOffsetDays = REMINDER_DAY_OFFSETS[alreadySent];
+      const firstSeen = row.first_seen_at ? new Date(row.first_seen_at).getTime() : NaN;
+      if (!Number.isFinite(firstSeen)) { skipped += 1; continue; }
+      const daysSinceFirstOpen = (Date.now() - firstSeen) / (24 * 3600 * 1000);
+      // Fixed day-2 / day-5 schedule from first open; a missed run sends late.
+      if (daysSinceFirstOpen < dueOffsetDays) { skipped += 1; continue; }
+      // Never two sends in the same day, even if offsets were reconfigured.
+      if (
+        row.last_signup_reminder_at &&
+        Date.now() - new Date(row.last_signup_reminder_at).getTime() < 20 * 3600 * 1000
+      ) {
         skipped += 1;
         continue;
       }
