@@ -131,6 +131,129 @@ export type Database = {
         }
         Relationships: []
       }
+      app_installs: {
+        Row: {
+          app_version: string | null
+          country: string | null
+          created_at: string
+          device_token: string | null
+          first_seen_at: string
+          install_id: string
+          last_seen_at: string
+          last_signup_reminder_at: string | null
+          linked_at: string | null
+          locale: string | null
+          notification_opt_in: boolean
+          notification_status: string | null
+          platform: string
+          signup_at: string | null
+          signup_reminders_sent: number
+          timezone: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          country?: string | null
+          created_at?: string
+          device_token?: string | null
+          first_seen_at?: string
+          install_id: string
+          last_seen_at?: string
+          last_signup_reminder_at?: string | null
+          linked_at?: string | null
+          locale?: string | null
+          notification_opt_in?: boolean
+          notification_status?: string | null
+          platform?: string
+          signup_at?: string | null
+          signup_reminders_sent?: number
+          timezone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          country?: string | null
+          created_at?: string
+          device_token?: string | null
+          first_seen_at?: string
+          install_id?: string
+          last_seen_at?: string
+          last_signup_reminder_at?: string | null
+          linked_at?: string | null
+          locale?: string | null
+          notification_opt_in?: boolean
+          notification_status?: string | null
+          platform?: string
+          signup_at?: string | null
+          signup_reminders_sent?: number
+          timezone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      app_screen_views: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          entered_at: string
+          id: string
+          install_id: string
+          local_date: string | null
+          platform: string
+          route: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number
+          entered_at: string
+          id?: string
+          install_id: string
+          local_date?: string | null
+          platform?: string
+          route: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          entered_at?: string
+          id?: string
+          install_id?: string
+          local_date?: string | null
+          platform?: string
+          route?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      app_store_downloads: {
+        Row: {
+          created_at: string
+          download_date: string
+          downloads: number
+          entered_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          download_date: string
+          downloads?: number
+          entered_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          download_date?: string
+          downloads?: number
+          entered_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       apple_notification_events: {
         Row: {
           created_at: string

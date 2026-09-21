@@ -19,6 +19,7 @@ import { OnboardingGuard, OnboardingBlockGuard } from "./components/OnboardingGu
 import { SubscriptionGuard } from "./components/SubscriptionGuard";
 import { CheckInVisibilityGuard } from "./components/CheckInVisibilityGuard";
 import { PushNotificationProvider, PushNotificationActionHandler } from "./components/PushNotificationProvider";
+import { AppUsageTracker } from "./components/AppUsageTracker";
 import { AuthProvider } from "./hooks/useAuth";
 import RelocationPromptBanner from "./components/profile/RelocationPromptBanner";
 import { ImpersonationProvider } from "./hooks/useImpersonation";
@@ -331,6 +332,7 @@ const Layout = () => {
         <TravelWatcher />
         <AppleCalendarWatcher />
         <IapEntitlementWatcher />
+        <AppUsageTracker />
         <PushNotificationProvider />
         <PushNotificationActionHandler />
         {showPillNav && <FloatingPillNav />}
