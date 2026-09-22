@@ -5983,6 +5983,7 @@ async function generateMasteryPlan(
     hasStage1Signal,
     mrsCardsAwaiting,
     snapshotMrsAwaiting,
+    noReadinessEvidence,
     requestMrsState: req.mrsReadinessState ?? null,
     requestMrsScore: req.mrsReadinessScore ?? null,
     readinessStage,
