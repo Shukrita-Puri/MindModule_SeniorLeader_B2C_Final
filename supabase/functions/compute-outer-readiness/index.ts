@@ -7656,6 +7656,24 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             } else {
               userPrompt += `\n  No classified meetings today.`;
             }
+            // CALENDAR TRUTH BLOCK — every real timed meeting today, whether
+            // high-stakes or not. Without this, a day of ordinary meetings
+            // reached the model as "no classified meetings" and it invented
+            // both a meeting kind and a clock time.
+            if (todayAllMeetings.length > 0) {
+              userPrompt +=
+                `\nALL TIMED MEETINGS TODAY (the complete, authoritative list — these are the ONLY meetings that exist today):`;
+              for (const m of todayAllMeetings) {
+                const kind = m.subcategory
+                  ? ` [kind: ${m.subcategory.replace(/_/g, " ")}]`
+                  : " [kind: unclassified]";
+                userPrompt += `\n  ${m.time ? `${m.time} ` : ""}${m.title}${
+                  m.category ? internalCatLabel(m.category) : ""
+                }${kind}`;
+              }
+              userPrompt +=
+                `\nCALENDAR TRUTH RULE (hard): reference a meeting ONLY by the titles above, shortened to the recognisable words. NEVER rename a meeting into a different kind (a catch-up is not a "strategy session"; an introductions call is not a "board call"). NEVER state a clock time that is not listed above. If the day has no meeting worth naming, say nothing about meetings and anchor the directive on body/mind signals instead.`;
+            }
             userPrompt += `\nTotal meetings: ${
               calendarResult.meetingCount ?? 0
             }`;
