@@ -5,7 +5,7 @@
 // can append to their prompts WITHOUT re-stating pillar copy.
 //
 // Single source of truth: ./event-categories.ts (selfRegulationFocus) +
-// ./event-classifier.ts (classifyEvent). This file never defines taxonomy.
+// ./resolve-event-category.ts (resolveEvent). This file never defines taxonomy.
 
 import { resolveEvent } from './resolve-event-category.ts';
 import { EVENT_CATEGORIES, type EventCategoryId } from './event-categories.ts';
