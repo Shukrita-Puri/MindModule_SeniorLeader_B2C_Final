@@ -5841,9 +5841,14 @@ serve(async (req) => {
             redactUserId(userId)
           } hit daily cap (${todayLogs.length}/${DAILY_NOTIFICATION_CAP}). Skipping.`,
         );
-        trace(userId, "daily_cap", {
+      trace(userId, "daily_cap", {
           ...traceBase,
-          metadata: { ...traceBase.metadata, count: todayLogs.length, cap: DAILY_NOTIFICATION_CAP },
+          metadata: {
+            ...traceBase.metadata,
+            count: todayLogs.length,
+            cap: DAILY_NOTIFICATION_CAP,
+            silent_sync_excluded: silentSyncTodayCount,
+          },
         });
         continue;
       }
@@ -5851,9 +5856,9 @@ serve(async (req) => {
       // 2-hour suppression check
       const twoHoursAgoIso = new Date(Date.now() - 2 * 60 * 60 * 1000)
         .toISOString();
-      const { data: recentLogs } = await supabase
+      const { data: recentLogsRaw } = await supabase
         .from("notification_log")
-        .select("sent_at")
+        .select("sent_at, notification_type, variant_id")
         .eq("user_id", userId)
         .gte("sent_at", twoHoursAgoIso)
         // Fix C: a diagnostic dry-run in the last 2h must not suppress a
@@ -5861,10 +5866,16 @@ serve(async (req) => {
         // delivery lifecycle (pending / accepted / delivered / opened /
         // action_completed) count as "recently notified".
         .in("delivery_state", COUNTABLE_DELIVERY_STATES as unknown as string[])
+        // Silent background sync never reaches the user, so it can never be
+        // the "recent notification" that spaces a real nudge out.
+        .neq("variant_id", SILENT_SYNC_VARIANT_ID)
         .order("sent_at", { ascending: false })
-        .limit(1);
+        .limit(10);
 
-      const lastSentAt = recentLogs?.[0]
+      const recentLogs = (recentLogsRaw ?? []).filter(
+        (r) => !isSilentSyncNotification(r as Record<string, unknown>),
+      ) as Array<{ sent_at: string }>;
+      const lastSentAt = recentLogs[0]
         ? new Date(recentLogs[0].sent_at)
         : null;
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
