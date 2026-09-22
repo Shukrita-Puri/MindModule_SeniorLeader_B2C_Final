@@ -69,6 +69,9 @@ import { dayOfWeekFromIsoDate } from "../_shared/signal-engine/day-kind-detector
 import {
   COUNTABLE_DELIVERY_STATES as SHARED_COUNTABLE_DELIVERY_STATES,
   isCountableDeliveryState,
+  excludeSilentSync,
+  isSilentSyncNotification,
+  SILENT_SYNC_VARIANT_ID,
 } from "../_shared/countable-notification-states.ts";
 // Batch C — atomic dispatch-key claim + per-device delivery attempts.
 import {
