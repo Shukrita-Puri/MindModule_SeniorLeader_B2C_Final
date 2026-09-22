@@ -7764,6 +7764,8 @@ function immediateClause(
     phase?: "pre" | "during" | "post" | null;
     practiceIsMindsetPause?: boolean;
     hasHrvEventCorrelation?: boolean;
+    /** Leader's own RHR baseline — required before any "elevated" claim. */
+    restingHRBaseline?: number | null;
   } = {},
 ): string | null {
   const ws = opts.windowSignals ?? null;
