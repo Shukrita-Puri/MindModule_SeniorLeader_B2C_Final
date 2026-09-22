@@ -10,69 +10,71 @@ The background sync added on 18 September sends silent pushes through the day. T
 
 Trace evidence: 18 September selected a real light-day morning reminder and then blocked it with `two_hour_suppression`; 19–21 September show repeated `daily_cap`; today's early runs are simply before her 08:00 window. No meeting-count rule was ever reached.
 
-**Fix:** define one shared rule for a *user-visible* notification and use it for the daily limit, the spacing rule and window occupancy — excluding `silent_sync` and all `early_morning_sync_*` / `daytime_sync_*` entries. Silent sync is unchanged; it just stops consuming reminder slots. Add a replay proving nine silent pushes cannot block a morning or evening reminder.
+**Fix:** one shared rule for a *user-visible* notification, used by the daily limit, the spacing rule and window occupancy — excluding `silent_sync` and all `early_morning_sync_*` / `daytime_sync_*` entries. Silent sync itself is unchanged. Replay 18–22 September to prove nine silent pushes cannot block a morning or evening reminder.
 
-### 2. Light Day — the existing definition stays exactly as it is
+### 2. Light Day — the existing definition is used as-is, not redefined
 
-The shared light-day module is already the single definition and already covers everything: a working day with zero or one timed meeting, a weekend day, an applicable public holiday, and PTO/OOO — with the last day of any weekend, holiday or PTO run excluded so week-ahead behaviour is preserved, and with "last day" resolved through the regional planning day (Sunday for most countries, Saturday for Israel and the Gulf). Travel and all-day conference days are explicit overrides and are never light days.
+The definition already lives in these files and none of them is edited:
 
-**Nothing in that module is redefined, reworded or re-derived.** It is the rule all three surfaces keep reading.
+- `supabase/functions/_shared/availability/light-day.ts` — the light-day SSOT: `light_workday` (zero or one timed meeting), `weekend`, `public_holiday`, `pto`; the last-day-of-run exclusion that preserves week-ahead behaviour; `countTimedMeetings` (all-day markers never count); travel and conference overrides.
+- `supabase/functions/_shared/availability/availability-classifier.ts` — the availability states the light-day module projects from.
+- `supabase/functions/_shared/availability/holiday-applicability.ts` — which public holidays apply to the user.
+- `supabase/functions/_shared/availability/week-ahead-hydration.ts` — the planning-day / last-off-day inputs, including the Sunday-versus-Saturday planning day for Israel and the Gulf.
+- Tests that pin all of the above: `availability-classifier.test.ts`, `availability-classifier-consolidation.test.ts`, `availability-cross-surface.test.ts`, `holiday-run-awareness.test.ts`, `light_day_surfaces_test.ts`.
 
-Today already fails it: two timed meetings, so it is not a light day. The correct shape is an ordinary working day, anchored on the presentation. Everything below fixes the surfaces that ignored or contradicted this verdict — not the rule itself.
+Its consumers stay as they are: `generate-mastery-plan/index.ts`, `smart-nudges/index.ts`, `_shared/brief/deterministic-brief.ts`, `compute-outer-readiness/index.ts`, `_shared/jit/slot-allocator.ts`.
 
-### 3. Why today's Plan says “conference day”
+Today already fails that rule — two timed meetings, so `light_workday` does not apply. The work below fixes the surfaces that contradicted the verdict, never the rule.
 
-No Category F event exists today. Two timed meetings and one all-day personal event do. Yet the Plan persisted `conference_day` while the stored load shape says `light`.
+### 3. There is one A–H resolver — the Plan has a second, non-resolver path
 
-The Plan runs two disconnected classifiers: its day-shape flag trusts an incoming `eventCategory === F`, while its candidate builder ignores stored categories and re-reads titles from scratch. The allocator is then allowed to lock a conference arc with an **empty** candidate list — exactly what was saved: `conference_day`, `candidateCount: 0`, three `state_fallback_no_meaningful_jit` slots.
+You are right that JIT v2 uses a single classifier. The duplicate is not a second A–H resolver; it is the Plan's day-shape helper reading raw stored columns instead of asking the resolver:
 
-**Fix:** resolve each deduplicated event **once** through the single A–H resolver and use that one result for both the day shape and the candidate list. A structural arc (conference, travel) requires a genuinely resolved event of that type plus at least one matching candidate. Persist the resolved event evidence in plan diagnostics so this is auditable.
+- `generate-mastery-plan/index.ts:8716-8723` derives `hasTravelDay`, `hasConferenceDay` and `hasOffsiteDay` straight off `e.eventCategory` / `e.eventSubcategory` on the calendar row — no `resolveEvent` call, no merge of the duplicate provider copies. Her Google rows carry no category at all, so this read is unreliable by construction.
+- `_shared/jit/load-jit-context.ts:195-199` still builds legacy memory keys from `coarseEventType(ev.title)`, a title heuristic that sits outside the resolver.
+- `_shared/jit/slot-allocator.ts:188-189` then commits the arc: `hasConferenceDay && (!top || top.categoryId === "F")`. The `!top` branch means an **empty** candidate list still locks `conference_day` — which is exactly what was persisted today: `day_kind: conference_day`, `candidateCount: 0`, three `state_fallback_no_meaningful_jit` slots, while the stored load shape says light.
+
+**Fix:** the Plan calls `resolveEvent` (`_shared/events/resolve-event-category.ts`) once per deduplicated event and feeds that one result to both the day-shape helper and the candidate builder, replacing the raw-column read at 8716 and the title heuristic at 199. In `slot-allocator.ts:184-189`, a structural arc requires a resolved event of that type **and** at least one matching candidate — drop the `!top` escape. Record the resolved evidence in plan diagnostics.
 
 ### 4. The 10:30 catch-up mislabelled as a strategy session
 
-`Shukrita x Melanie catch up` — two attendees, not high stakes — is stored as Category E / `routine_sync`, a focus-work classification. The Brief therefore called it a strategy session and a catch-up in the same paragraph.
+`Shukrita x Melanie catch up` — two attendees, not high stakes — is stored as Category E / `routine_sync`, a focus-work classification, so the Brief called it a strategy session and a catch-up in one paragraph.
 
-**Fix:** two-person `catch up` titles resolve to the relational one-to-one category, and the Brief describes a meeting using its own title. Test with this exact title and attendee shape.
-
-Today's second meeting is a presentation and must resolve as high stakes, which is what gives today's plan a real anchor.
+**Fix:** in `_shared/events/resolve-event-category.ts`, two-person `catch up` titles resolve to the relational one-to-one category, and `_shared/brief/deterministic-brief.ts` describes a meeting by its own title. Test with this exact title and attendee shape. The 16:00 introductions meeting must resolve as the high-stakes presentation it is, which is what gives today's plan a real anchor.
 
 ### 5. Duplicate meetings are not the pill's problem
 
-The calendar pill already collapses the Apple and Google copies correctly, and Load Shape uses the same merge. The “1 further event could not be categorised” note is an unresolved-category count *after* deduplication.
+The calendar pill already collapses the Apple and Google copies, and Load Shape uses the same merge. The “1 further event could not be categorised” note is an unresolved-category count *after* deduplication.
 
-**Decision:** no global deduplication rewrite. Only the Google copies currently carry no category, so resolution must run on the merged event rather than on one provider's row; correct that, and identify the genuinely unresolved event.
+**Decision:** no deduplication rewrite. Resolution must simply run on the merged event rather than one provider's row — the same change as item 3 — and then identify the genuinely unresolved event.
 
 ### 6. Why “why this matters” says nothing meaningful — the real defect
 
-This is the important one, and it is not about banned words. The titles are right; the justification is missing.
+The titles are right; the justification is missing.
 
-The why-line writer already accepts HRV, sleep, resting heart rate, mind and body state, stress and burnout load, pattern summary and growth intention. Today it received almost none of it:
+`_shared/plan/why-llm.ts` already accepts HRV, sleep, resting heart rate, mind and body state, stress and burnout load, pattern summary and growth intention. Today it received almost none of it: readiness is awaiting so the state band is empty (`stateBand` null), HRV and sleep are absent so every wearable phrase in `pickRelevantSignalPhrases` is dropped, and no slot has an event so there is no anchor.
 
-- readiness is awaiting, so the state band is empty;
-- HRV and sleep are absent, so every wearable phrase is dropped;
-- all three slots have no event, so there is no anchor.
-
-The validator then requires **either** an event anchor **or** a state-band word. With neither, every line is rejected as “generic” and the deterministic fallback writes the placeholder sentences you saw — three unrelated claims about high-demand, light and heavy days with nothing behind them.
+The validator at `why-llm.ts:378-391` then requires **either** an event anchor **or** a state-band word. With neither, every line is rejected as `generic` and the deterministic fallback writes the placeholders you saw.
 
 Two further gaps:
 
-- **Recovery is asserted without recovery proof.** The prompt may say “recover” with no obligation to cite a recovery signal, so the recommendation appears without its reason.
-- **Recent and upcoming load are not inputs at all.** There is no field for “the last three days were heavy or high-stakes” and none for “the next two days are high stakes”, so the writer cannot make the argument you described even when the data exists.
+- **Recovery is asserted without recovery proof** — nothing obliges a recovery recommendation to cite a recovery signal.
+- **Recent and upcoming load are not inputs at all** — `WhyLLMInput` has no field for "recent days were heavy or high-stakes" and none for "the next two days are high stakes", so the writer cannot make your argument even when the data exists.
 
 **Fix — reason first, then write:**
 
-1. Add recent-load and upcoming-load evidence to the why-line input: how many recent days carried heavy load or high-stakes commitments, and what is coming in the next two days, computed from stored day context and the calendar.
-2. Widen acceptable grounding: a line is grounded by an event anchor **or** a named body/recovery signal **or** a recent/upcoming load fact **or** a stated strategic goal from onboarding. Only a line citing none of these is generic.
-3. Require the justification to match the claim: a recovery recommendation must cite the reason to recover — recent heavy load, upcoming high-stakes load, or a named body signal. A preparation recommendation must cite what it prepares for.
-4. On a light day the plan is still produced and still recovery-focused; the difference is that its lines read like the argument you gave — today is light, recent days were heavy, the next days are high stakes, so today is where the margin is built.
+1. Add recent-load and upcoming-load evidence to `WhyLLMInput`, computed from stored day context and the calendar.
+2. Widen grounding in the validator: an event anchor **or** a named body/recovery signal **or** a recent/upcoming load fact **or** a stated strategic goal. Only a line citing none of these is generic.
+3. Require the justification to match the claim: a recovery recommendation must cite the reason to recover; a preparation recommendation must cite what it prepares for.
+4. On a light day the plan is still produced and still recovery-focused — its lines must read like your example: today is light, recent days were heavy, the next days are high stakes, so today is where the margin is built.
 5. Keep the deterministic path, but make its sentences carry the same evidence instead of placeholder text.
 6. An empty candidate list is **not** grounds to reject a plan. Only slots with no evidence of any kind fall back, and that fallback still names a real signal.
 
 ### 7. Why the three cards disagree between iPhone and web
 
-Today's stored readiness is correctly awaiting. The same run nevertheless published a full Brief and stored a ready Plan. Web applies the fresh-signal gate and shows Awaiting; the installed iPhone build is still showing the published Brief and Plan.
+Today's stored readiness is correctly awaiting, yet the same run published a full Brief and stored a ready Plan. Web applies the fresh-signal gate and shows Awaiting; the installed iPhone build is still showing the published content.
 
-**Fix:** the stored readiness verdict is authoritative — when it is awaiting, Brief and Plan store only their awaiting state and never publish formed content. Both platforms read through the same gate. Clear the invalid formed snapshots so an older app cannot keep selecting them. Confirm the shipped iPhone bundle version before treating this as an iOS-only display defect.
+**Fix:** the stored readiness verdict is authoritative — when awaiting, Brief and Plan store only their awaiting state. Both platforms read through the same gate. Clear today's invalid formed snapshots so an older app cannot keep selecting them, and confirm the shipped iPhone bundle version before calling this iOS-only.
 
 ### 8. Wearable data
 
@@ -80,25 +82,25 @@ Apple Health has supplied heart rate only since 20 September — no HRV, no slee
 
 ## Implementation order
 
-1. Notifications: exclude silent sync from limits and spacing; deploy Smart Nudges alone; replay 18–22 September.
+1. Notifications: exclude silent sync from limits and spacing (Smart Nudges deployed alone); replay 18–22 September.
 2. Event resolution: resolve merged events once; fix catch-up and presentation stakes.
-3. Plan day shape and candidates: one classifier, evidence required for structural arcs.
+3. Plan day shape: replace the raw-column read and the legacy title heuristic; require evidence for structural arcs.
 4. Why-lines: add recent/upcoming load, widen grounding, require claim-matching justification.
 5. Card atomicity and retirement of today's invalid snapshots.
 6. HealthKit HRV and sleep.
 
-The light-day module itself is not edited at any step.
+No file under `_shared/availability/` is edited at any step.
 
 ## Verification
 
 On her real account, iPhone first then web:
 
-- silent sync no longer consumes any visible notification allowance, and a morning and evening reminder can send;
-- today is an ordinary working day anchored on the presentation — not a conference day;
+- silent sync consumes no visible-notification allowance, and a morning and evening reminder can send;
+- today is an ordinary working day anchored on the 16:00 presentation — not a conference day;
 - the 10:30 meeting reads as a catch-up;
-- every “why this matters” line names its evidence: the event, a body signal, recent or upcoming load, or a stated goal — and a recovery recommendation always shows why recovery is warranted;
+- every “why this matters” line names its evidence — the event, a body signal, recent or upcoming load, or a stated goal — and a recovery recommendation always shows why recovery is warranted;
 - a genuine light day still produces a full recovery-focused plan with justified lines;
-- the three cards agree on both platforms, and nothing is shown as formed without a fresh score-bearing signal;
+- the three cards agree on both platforms, and nothing shows as formed without a fresh score-bearing signal;
 - HRV and sleep appear before readiness is allowed to form.
 
 No visual redesign, no reminder-copy rewrite, and no changes to subscriptions, onboarding screens or admin analytics.
