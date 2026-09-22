@@ -7917,6 +7917,7 @@ function composeWhyLine(
     phase: ((hm as any).jitPhase as "pre" | "during" | "post" | null) ?? null,
     practiceIsMindsetPause,
     hasHrvEventCorrelation,
+    restingHRBaseline: shared?.restingHRBaseline ?? null,
   });
 
   if (strat && clauseOverlapsBrief(strat, briefClaim)) strat = null;
