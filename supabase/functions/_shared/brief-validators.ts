@@ -739,6 +739,10 @@ export function validateBody(
     if (!pill.ok) return pill;
   }
 
+  // Calendar truth — engages only when the caller supplies today's events.
+  const calendar = validateCalendarTruth(trimmed, opts?.calendarTruth ?? null);
+  if (!calendar.ok) return calendar;
+
   return { ok: true };
 }
 
