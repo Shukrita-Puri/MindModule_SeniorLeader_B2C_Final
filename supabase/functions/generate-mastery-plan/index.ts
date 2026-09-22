@@ -5926,7 +5926,28 @@ async function generateMasteryPlan(
     (req.mrsReadinessState != null && req.mrsReadinessScore == null) ||
     outerReadinessCache?.awaitingSignals === true ||
     outerReadinessCache?.briefMode === "cold-start";
-  const mrsCardsAwaiting = snapshotMrsAwaiting === true || requestMrsAwaiting;
+  // Readiness gate, fail-closed leg: a MISSING current-window MRS snapshot is
+  // not permission to publish. If there is no snapshot row for
+  // (user, today, window) AND the request carries no usable readiness score
+  // (neither an explicit mrsReadinessScore nor a non-awaiting brief cache
+  // score), the MRS card is still awaiting on the client, so the Plan must
+  // return its awaiting envelope rather than a fabricated ready plan.
+  const cacheReadinessScore =
+    typeof outerReadinessCache?.innerReadinessScore === "number"
+      ? outerReadinessCache.innerReadinessScore
+      : (typeof outerReadinessCache?.score === "number"
+        ? outerReadinessCache.score
+        : null);
+  const hasRequestReadinessScore =
+    typeof req.mrsReadinessScore === "number" &&
+    Number.isFinite(req.mrsReadinessScore);
+  const hasCacheReadinessScore = cacheReadinessScore != null &&
+    Number.isFinite(cacheReadinessScore) &&
+    outerReadinessCache?.awaitingSignals !== true;
+  const noReadinessEvidence = snapshotMrsAwaiting === null &&
+    !hasRequestReadinessScore && !hasCacheReadinessScore;
+  const mrsCardsAwaiting = snapshotMrsAwaiting === true || requestMrsAwaiting ||
+    noReadinessEvidence;
   const readinessStage = mrsSnapState === "refined"
     ? "full"
     : (hasStage1Signal && !mrsCardsAwaiting ? "early" : "cold_start");
@@ -5962,6 +5983,7 @@ async function generateMasteryPlan(
     hasStage1Signal,
     mrsCardsAwaiting,
     snapshotMrsAwaiting,
+    noReadinessEvidence,
     requestMrsState: req.mrsReadinessState ?? null,
     requestMrsScore: req.mrsReadinessScore ?? null,
     readinessStage,
