@@ -14,6 +14,8 @@ export interface FormatTaxonomyEventInput {
   title: string | null | undefined;
   /** Optional ISO start time. When provided, the block lists events in order. */
   startTime?: string | Date | null;
+  /** Optional raw calendar row — lets the resolver honour user-set categories. */
+  raw?: Record<string, unknown> | null;
 }
 
 /**
