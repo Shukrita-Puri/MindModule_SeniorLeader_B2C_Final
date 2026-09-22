@@ -113,10 +113,12 @@ export const REPLACEMENT_VOCABULARY = `REPLACEMENT VOCABULARY (reach for these i
 When you need to describe state without using the banned words, use:
 - Instead of "strong" / "high"          → "sharp", "clear", "dialled in", "carrying edge"
 - Instead of "low" / "moderate"         → "stretched", "thin", "loaded", "behind"
-- Instead of "readiness"                → "state", "edge", "runway", "reserves in the tank"
+- Instead of "readiness"                → "state", "edge", "runway", "what's in the tank"
 - Instead of "calm" / "relax" / "breathe" → "settle", "steady", "hold your line"
 - Instead of "recharge" / "restore" / "self-care" → "keep your edge", "pace yourself", "protect the next hour"
-- Instead of "HRV" / "cortisol" / "parasympathetic" / "sympathetic" → "recovery", "body signals", "your system", "reserves", "baseline"
+- Instead of "HRV" / "cortisol" / "parasympathetic" / "sympathetic" → "recovery", "body signals", "your system", "how you're recovering"
+NOTE: "reserves", "capacity", "baseline" and "cognitive load" are BANNED —
+never use them here, even as substitutes.
 These are executive-register substitutes, not synonyms — pick the one that
 matches the actual state you are naming, not a blanket swap.`;
 
