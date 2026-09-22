@@ -157,6 +157,10 @@ export function useAppUsageTracking(): void {
       if (!route) return;
       const elapsed = accumulated.current + (Date.now() - enteredAt.current);
       accumulated.current = 0;
+      // Consume the visit: a second close() (cleanup then next effect run) must
+      // never re-record the same screen.
+      currentRoute.current = null;
+      enteredAt.current = Date.now();
       if (elapsed < MIN_TRACKED_MS) return;
       queue.push({
         route,
@@ -170,17 +174,7 @@ export function useAppUsageTracking(): void {
     // A full page unload never finishes an unmount flush — record what is
     // pending while the page is still alive.
     const onPageHide = () => {
-      const route = currentRoute.current;
-      if (!route) return;
-      const elapsed = accumulated.current + (Date.now() - enteredAt.current);
-      if (elapsed < MIN_TRACKED_MS) return;
-      queue.push({
-        route,
-        enteredAt: new Date(Date.now() - elapsed).toISOString(),
-        durationMs: elapsed,
-        localDate: localDateString(),
-      });
-      void flushUsage();
+      close();
     };
     window.addEventListener('pagehide', onPageHide);
 
