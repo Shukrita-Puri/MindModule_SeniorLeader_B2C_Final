@@ -7816,8 +7816,17 @@ function immediateClause(
         Math.abs(Math.round(w.hrvDeviation))
       }% below your baseline.`;
     }
-    if (w.restingHR !== null && w.restingHR > 0) {
-      return `Resting HR is elevated.`;
+    // RHR is only "elevated" against the leader's OWN baseline — a reading
+    // above zero proves nothing. Without a baseline, say nothing.
+    const rhrBase = opts.restingHRBaseline ?? null;
+    if (
+      w.restingHR !== null && w.restingHR > 0 &&
+      typeof rhrBase === "number" && rhrBase > 0 &&
+      w.restingHR - rhrBase >= 3
+    ) {
+      return `Resting heart rate is ${Math.round(w.restingHR)}bpm against a ${
+        Math.round(rhrBase)
+      }bpm baseline.`;
     }
   }
   if ((req.clarityLevel ?? 5) <= 2) return "Clarity is low this morning.";
