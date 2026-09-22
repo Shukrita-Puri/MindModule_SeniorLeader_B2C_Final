@@ -5,15 +5,17 @@
 // can append to their prompts WITHOUT re-stating pillar copy.
 //
 // Single source of truth: ./event-categories.ts (selfRegulationFocus) +
-// ./event-classifier.ts (classifyEvent). This file never defines taxonomy.
+// ./resolve-event-category.ts (resolveEvent). This file never defines taxonomy.
 
-import { classifyEvent } from './event-classifier.ts';
+import { resolveEvent } from './resolve-event-category.ts';
 import { EVENT_CATEGORIES, type EventCategoryId } from './event-categories.ts';
 
 export interface FormatTaxonomyEventInput {
   title: string | null | undefined;
   /** Optional ISO start time. When provided, the block lists events in order. */
   startTime?: string | Date | null;
+  /** Optional raw calendar row — lets the resolver honour user-set categories. */
+  raw?: Record<string, unknown> | null;
 }
 
 /**
@@ -29,7 +31,14 @@ export function formatEventTaxonomyBlock(
   const rows: Row[] = [];
   for (const e of events) {
     if (!e.title) continue;
-    const et = classifyEvent(e.title);
+    // Single A–H entry point: the same resolver the Plan and JIT v2 use, so a
+    // meeting can never read as one pillar in the Brief and another in the Plan.
+    let et: { categoryId: EventCategoryId | null } | null = null;
+    try {
+      et = resolveEvent(e.raw ?? { title: e.title });
+    } catch {
+      et = null;
+    }
     if (!et || !et.categoryId) continue;
     const cat = EVENT_CATEGORIES[et.categoryId];
     if (!cat) continue;

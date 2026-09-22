@@ -63,5 +63,7 @@ Deno.test("subcategory map is populated from ANY memory row (not just picker)", 
 
 Deno.test("enrichEvent import remains as the fallback classifier", () => {
   assertStringIncludes(SRC, "import { enrichEvent }");
-  assertStringIncludes(SRC, "enrichEvent({ title: meta.title })");
+  // The call now also passes the per-user learning context; assert on the
+  // call site, not the exact argument list.
+  assertStringIncludes(SRC, "enrichEvent({ title: meta.title");
 });

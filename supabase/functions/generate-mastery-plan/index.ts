@@ -7764,6 +7764,8 @@ function immediateClause(
     phase?: "pre" | "during" | "post" | null;
     practiceIsMindsetPause?: boolean;
     hasHrvEventCorrelation?: boolean;
+    /** Leader's own RHR baseline — required before any "elevated" claim. */
+    restingHRBaseline?: number | null;
   } = {},
 ): string | null {
   const ws = opts.windowSignals ?? null;
@@ -7816,12 +7818,31 @@ function immediateClause(
         Math.abs(Math.round(w.hrvDeviation))
       }% below your baseline.`;
     }
-    if (w.restingHR !== null && w.restingHR > 0) {
-      return `Resting HR is elevated.`;
+    // RHR is only "elevated" against the leader's OWN baseline — a reading
+    // above zero proves nothing. Without a baseline, say nothing.
+    const rhrBase = opts.restingHRBaseline ?? null;
+    if (
+      w.restingHR !== null && w.restingHR > 0 &&
+      typeof rhrBase === "number" && rhrBase > 0 &&
+      w.restingHR - rhrBase >= 3
+    ) {
+      return `Resting heart rate is ${Math.round(w.restingHR)}bpm against a ${
+        Math.round(rhrBase)
+      }bpm baseline.`;
     }
   }
-  if ((req.clarityLevel ?? 5) <= 2) return "Clarity is low this morning.";
-  if ((req.confidenceLevel ?? 5) <= 2) return "Confidence is reading low.";
+  // 0 / null means the leader never answered that slider — an unanswered
+  // question is not a low score, so it must never be reported as one.
+  const clarityAnswered = typeof req.clarityLevel === "number" &&
+    req.clarityLevel >= 1;
+  const confidenceAnswered = typeof req.confidenceLevel === "number" &&
+    req.confidenceLevel >= 1;
+  if (clarityAnswered && (req.clarityLevel as number) <= 2) {
+    return "Clarity is low this morning.";
+  }
+  if (confidenceAnswered && (req.confidenceLevel as number) <= 2) {
+    return "Confidence is reading low.";
+  }
   if (req.calendarEvents && req.calendarEvents.length >= 5) {
     return "Calendar is dense today.";
   }
@@ -7906,6 +7927,7 @@ function composeWhyLine(
     phase: ((hm as any).jitPhase as "pre" | "during" | "post" | null) ?? null,
     practiceIsMindsetPause,
     hasHrvEventCorrelation,
+    restingHRBaseline: shared?.restingHRBaseline ?? null,
   });
 
   if (strat && clauseOverlapsBrief(strat, briefClaim)) strat = null;
