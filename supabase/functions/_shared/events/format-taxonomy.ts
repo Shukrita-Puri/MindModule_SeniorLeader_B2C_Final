@@ -29,7 +29,14 @@ export function formatEventTaxonomyBlock(
   const rows: Row[] = [];
   for (const e of events) {
     if (!e.title) continue;
-    const et = classifyEvent(e.title);
+    // Single A–H entry point: the same resolver the Plan and JIT v2 use, so a
+    // meeting can never read as one pillar in the Brief and another in the Plan.
+    let et: { categoryId: EventCategoryId | null } | null = null;
+    try {
+      et = resolveEvent(e.raw ?? { title: e.title });
+    } catch {
+      et = null;
+    }
     if (!et || !et.categoryId) continue;
     const cat = EVENT_CATEGORIES[et.categoryId];
     if (!cat) continue;
