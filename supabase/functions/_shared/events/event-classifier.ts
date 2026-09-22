@@ -81,7 +81,7 @@ export function classifyEvent(
 // HRV correlation maps, canonical-tag lookups, and dim scoring. Single
 // source of truth: lives next to the classifier so no feature surface
 // re-encodes the taxonomy.
-const SUBTYPE_TO_COARSE: Record<string, string> = {
+export const SUBTYPE_TO_COARSE: Record<string, string> = {
   'gov.board_meeting':           'board',
   'gov.board_committee':         'board',
   'gov.board_prep':              'board',
@@ -121,6 +121,20 @@ const SUBTYPE_TO_COARSE: Record<string, string> = {
  * Coarse event-type token derived from the shared classifier. Returns
  * 'other' when no subtype matches. Replaces per-feature keyword tables.
  */
+/**
+ * Coarse memory key for an event whose A–H subtype has already been resolved
+ * by the single entry point (`resolveEvent`). Uses the SAME coarse vocabulary
+ * as `coarseEventType`, so old and new event_priority_memory rows stay
+ * mutually intelligible — it only removes the second, less accurate v1
+ * title pass. Callers fall back to `coarseEventType` when no subtype resolved.
+ */
+export function coarseEventTypeFromSubtypeId(
+  subtypeId: string | null | undefined,
+): string | null {
+  if (!subtypeId) return null;
+  return SUBTYPE_TO_COARSE[subtypeId] ?? null;
+}
+
 export function coarseEventType(title: string | null | undefined): string {
   const et = classifyEvent(title);
   if (!et) return 'other';

@@ -31,12 +31,41 @@ const NON_PERSON_TOKENS = new Set([
   "weekly", "monthly", "quarterly", "daily", "biweekly", "call", "meeting",
   "session", "sync", "update", "check-in", "checkin", "hold", "block",
   "focus", "admin", "misc", "tbc", "tbd", "ai", "hr", "it", "qbr",
+  "client", "clients", "customer", "customers", "partner", "partners",
+  "presentation", "pitch", "prep", "deck", "proposal", "vendor", "supplier",
+  "introductions", "intro", "onboarding", "training", "induction",
 ]);
 
 const CONNECTOR_RE =
   /^\s*(?:catch[-\s]?up|catch\s*up|1[-:\s]?on[-:\s]?1|touch\s*base)\s+(?:with|w\/)\s+(.+)$/i;
 
-const SEPARATOR_RE = /\s*(?:\||\/|<>|<->|&|\band\b|\s-\s)\s*/i;
+const SEPARATOR_RE = /\s*(?:\||\/|<>|<->|&|\band\b|\bx\b|\s-\s)\s*/i;
+
+/**
+ * Unambiguous pair separators only — the spaced hyphen is excluded because it
+ * is also the common "Topic - Detail" form ("Coca-Cola Client - Presentation").
+ * Used by the layer that runs BEFORE the keyword dictionary.
+ */
+const STRONG_SEPARATOR_RE = /\s*(?:\||<>|<->|&|\bx\b)\s*/i;
+
+/**
+ * Generic ritual nouns that trail a two-party title:
+ * "Shukrita x Melanie catch up", "Rohit | Jane weekly sync".
+ * Stripped (repeatedly) before person detection so the pair is still visible.
+ */
+const RITUAL_TAIL_RE =
+  /\s*[-–—:|,]?\s*(?:catch[-\s]?up|catchup|touch\s*base|sync|check[-\s]?in|checkin|chat|call|meeting|conversation|1[-:\s]?1|1[-:\s]?on[-:\s]?1|weekly|monthly|fortnightly|biweekly|quarterly|daily|update)\s*$/i;
+
+/** Remove trailing generic meeting nouns; returns the bare pair portion. */
+export function stripRitualTail(rawTitle: string): string {
+  let out = (rawTitle ?? "").trim();
+  for (let i = 0; i < 4; i++) {
+    const next = out.replace(RITUAL_TAIL_RE, "").trim();
+    if (next === out || !next) break;
+    out = next;
+  }
+  return out;
+}
 
 function tokenise(part: string): string[] {
   return part
@@ -72,6 +101,15 @@ export function isConnectorTwoPartyTitle(rawTitle: string | null | undefined): b
   return connector ? isPersonLikeName(connector[1]) : false;
 }
 
+function pairMatches(title: string, sep: RegExp): boolean {
+  // Any trailing generic ritual noun is removed first so the pair is visible.
+  const core = stripRitualTail(title);
+  if (!core || !sep.test(core)) return false;
+  const parts = core.split(sep).map((p) => p.trim()).filter(Boolean);
+  if (parts.length !== 2) return false;
+  return parts.every(isPersonLikeName);
+}
+
 export function isTwoPartyTitle(rawTitle: string | null | undefined): boolean {
   const title = (rawTitle ?? "").replace(/^\d{1,2}:\d{2}\s+/, "").trim();
   if (!title) return false;
@@ -81,9 +119,17 @@ export function isTwoPartyTitle(rawTitle: string | null | undefined): boolean {
   const connector = title.match(CONNECTOR_RE);
   if (connector) return isPersonLikeName(connector[1]);
 
-  // Separator / conjunction form: "A | B", "A / B", "A <> B", "A and B".
-  if (!SEPARATOR_RE.test(title)) return false;
-  const parts = title.split(SEPARATOR_RE).map((p) => p.trim()).filter(Boolean);
-  if (parts.length !== 2) return false;
-  return parts.every(isPersonLikeName);
+  return pairMatches(title, SEPARATOR_RE);
+}
+
+/**
+ * Named-pair form with an unambiguous separator only ("Shukrita x Melanie
+ * catch up", "Rohit | Jane weekly sync"). Safe to run before the keyword
+ * dictionary — the looser hyphen/slash forms stay in the late fallback.
+ */
+export function isStrongTwoPartyTitle(rawTitle: string | null | undefined): boolean {
+  const title = (rawTitle ?? "").replace(/^\d{1,2}:\d{2}\s+/, "").trim();
+  if (!title) return false;
+  if (SOCIAL_EXCLUSIONS.test(title)) return false;
+  return pairMatches(title, STRONG_SEPARATOR_RE);
 }

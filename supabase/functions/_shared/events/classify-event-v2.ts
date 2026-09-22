@@ -26,7 +26,7 @@ import { hasPresentationVerb } from "./presentation-verbs.ts";
 import { findAcronymMatch } from "./acronym-dictionary.ts";
 import { lookupLearned, type LearningContext } from "./learning-store.ts";
 import { detectContentIntent } from "./event-intent.ts";
-import { isConnectorTwoPartyTitle, isTwoPartyTitle } from "./two-party-title.ts";
+import { isConnectorTwoPartyTitle, isStrongTwoPartyTitle, isTwoPartyTitle } from "./two-party-title.ts";
 
 export type ResolvedBy =
   | 'layer0_status'
@@ -105,6 +105,24 @@ const USER_TAG_TO_CATEGORY: Record<string, EventCategoryId> = {
 // the user is organizer, route to str.deep_work regardless of v1 dictionary
 // (which historically caught "feedback" in lead.difficult_conversation).
 const DEEP_WORK_FEEDBACK_RE = /\b(beta|user|customer|product)\s+(feedback|test\s+feedback)\b|\bfeedback\s+(session|review|analysis)\b/i;
+
+// An introductions / intro call: a first meeting where the leader is being
+// assessed. Excludes onboarding-style internal inductions and "introduction to
+// <topic>" content (the intent layer already routes the latter to learning).
+// Deliberately narrow: the plural "introductions" (a room being introduced to
+// each other) and the explicit "introductory call/meeting". A bare "Intro Call
+// > Name @ Firm" stays with the existing education/networking routing.
+const INTRODUCTIONS_RE =
+  /\bintroductions\b|\bintroductory\s+(?:call|meeting|session|chat)\b/i;
+const INTRODUCTIONS_EXCLUSIONS =
+  /\b(introduction\s+to|intro\s+to|induction|onboarding|new\s+starter|orientation)\b/i;
+
+export function isIntroductionsMeeting(title: string | null | undefined): boolean {
+  const t = (title ?? '').trim();
+  if (!t) return false;
+  if (INTRODUCTIONS_EXCLUSIONS.test(t)) return false;
+  return INTRODUCTIONS_RE.test(t);
+}
 
 function isDeepWorkFeedback(title: string, isOrganizer: boolean | null | undefined): boolean {
   if (!title) return false;
@@ -277,10 +295,20 @@ export function classifyEventV2(input: ClassifyV2Input): ClassifyV2Result {
     }
   }
 
-  // L5b: connector two-party form ("catch up with Jane"). Runs before the
-  // dictionary so a generic "catch-up" token cannot swallow a named 1:1.
-  if (isConnectorTwoPartyTitle(title)) {
+  // L5b: two-party forms — connector ("catch up with Jane") AND the named-pair
+  // form ("Shukrita x Melanie catch up", "Rohit | Jane weekly sync"). Both run
+  // before the dictionary so a generic "catch-up"/"sync" token cannot swallow
+  // a named 1:1. Attendee counts are never consulted.
+  if (isConnectorTwoPartyTitle(title) || isStrongTwoPartyTitle(title)) {
     return resultFromSubtype('lead.executive_1on1', 'layer5_acronym', 'medium');
+  }
+
+  // L5c: external introductions / intro call. A first meeting with people
+  // outside the existing relationship set carries presentation stakes — it is
+  // never routine admin. Narrow token set; content-about-a-topic titles have
+  // already been captured by the intent layer above.
+  if (isIntroductionsMeeting(title)) {
+    return resultFromSubtype('inf.client_presentation', 'layer5_acronym', 'medium');
   }
 
   // L6: v2 dictionary match (word-boundary aware, honours excludeKeywords).
