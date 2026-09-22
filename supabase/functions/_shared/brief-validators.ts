@@ -70,6 +70,12 @@ export interface ExtendedValidateOptions {
    */
   mrsScore?: number | null;
   pillContext?: PillContext | null;
+  /**
+   * Today's real events. When supplied, the body may not state a clock time
+   * or a meeting kind that no supplied event supports. Omit to keep the
+   * pre-existing behaviour untouched.
+   */
+  calendarTruth?: CalendarTruth | null;
 }
 
 // ---------------------------------------------------------------------------
