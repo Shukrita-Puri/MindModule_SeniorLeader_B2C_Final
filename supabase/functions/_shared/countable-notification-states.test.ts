@@ -7,6 +7,9 @@ import {
   NON_COUNTABLE_DELIVERY_STATES,
   isCountableDeliveryState,
   isNonCountableDeliveryState,
+  isSilentSyncNotification,
+  isUserVisibleNotification,
+  excludeSilentSync,
 } from "./countable-notification-states.ts";
 
 Deno.test("failed / dry_run / suppressed / test_push do NOT consume limits", () => {
