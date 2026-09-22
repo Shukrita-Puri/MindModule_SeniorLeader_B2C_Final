@@ -7831,8 +7831,18 @@ function immediateClause(
       }bpm baseline.`;
     }
   }
-  if ((req.clarityLevel ?? 5) <= 2) return "Clarity is low this morning.";
-  if ((req.confidenceLevel ?? 5) <= 2) return "Confidence is reading low.";
+  // 0 / null means the leader never answered that slider — an unanswered
+  // question is not a low score, so it must never be reported as one.
+  const clarityAnswered = typeof req.clarityLevel === "number" &&
+    req.clarityLevel >= 1;
+  const confidenceAnswered = typeof req.confidenceLevel === "number" &&
+    req.confidenceLevel >= 1;
+  if (clarityAnswered && (req.clarityLevel as number) <= 2) {
+    return "Clarity is low this morning.";
+  }
+  if (confidenceAnswered && (req.confidenceLevel as number) <= 2) {
+    return "Confidence is reading low.";
+  }
   if (req.calendarEvents && req.calendarEvents.length >= 5) {
     return "Calendar is dense today.";
   }
