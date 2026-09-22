@@ -4839,6 +4839,18 @@ serve(async (req) => {
     // time so the LLM never invents or rounds it.
     let todayHighStakesEventTimes: string[] = [];
     let todayHighStakesCategories: string[] = [];
+    // CALENDAR TRUTH — every deduplicated timed meeting today, with its real
+    // local clock time and resolved kind. The prompt lists these so the model
+    // has real titles to reference even on a day with no high-stakes event,
+    // and the validator rejects any clock time or meeting kind that is not in
+    // here. Populated on the today-pairing path; empty means "not supplied"
+    // and the gate stays off.
+    let todayAllMeetings: Array<{
+      time: string;
+      title: string;
+      category: string;
+      subcategory: string;
+    }> = [];
     let practicesCompletedThisWeek = 0;
     let practiceCompletionRate = 0;
     let daysSinceCoachSession: number | null = null;
