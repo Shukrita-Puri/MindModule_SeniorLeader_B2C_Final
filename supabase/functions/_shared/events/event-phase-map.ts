@@ -10,6 +10,8 @@ import type { ComboKey, ProtocolCombo } from "../protocols/protocol-combos.ts";
 import { PROTOCOL_COMBOS } from "../protocols/protocol-combos.ts";
 import type { EventCategoryId } from "./event-categories.ts";
 import { classifyEvent } from "./event-classifier.ts";
+import { classifyEventV2 } from "./classify-event-v2.ts";
+import { ambientLearningContext } from "./learning-store.ts";
 
 export type Phase = "pre" | "during" | "post";
 
@@ -120,6 +122,15 @@ function categoryFor(title: string, stakesLevel?: string | null): EventCategoryI
   if (stakesLevel) {
     const hit = STAKES_TO_CATEGORY[stakesLevel.toLowerCase()];
     if (hit) return hit;
+  }
+  // Route through the layered classifier (the same one resolveEvent() uses)
+  // so a title the v1 dictionary cannot place still gets its A–H phases.
+  // Falls back to v1 on any failure — never throws, never blocks.
+  try {
+    const v2 = classifyEventV2({ title, learned: ambientLearningContext() ?? undefined });
+    if (v2?.category) return v2.category;
+  } catch (_e) {
+    // fall through to the v1 dictionary
   }
   const subtype = classifyEvent(title);
   return subtype?.categoryId ?? null;
