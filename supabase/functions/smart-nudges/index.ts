@@ -5658,7 +5658,7 @@ serve(async (req) => {
       // suppressed, validation_rejected, expired_before_delivery,
       // configuration_failed, duplicate_claim, test_push.
       const COUNTABLE_DELIVERY_STATES = SHARED_COUNTABLE_DELIVERY_STATES;
-      const { data: todayLogs } = await supabase
+      const { data: todayLogsRaw } = await supabase
         .from("notification_log")
         .select(
           "notification_type, variant_id, sent_at, event_reference, payload",
@@ -5668,6 +5668,12 @@ serve(async (req) => {
         .lt("sent_at", todayEndUtc)
         .in("delivery_state", COUNTABLE_DELIVERY_STATES as unknown as string[])
         .order("sent_at", { ascending: false });
+      // Silent background-sync pushes are content-available only — the user
+      // never sees them, so they must not consume the daily cap or any slot.
+      const todayLogs = excludeSilentSync(
+        todayLogsRaw as Array<Record<string, unknown>> | null,
+      );
+      const silentSyncTodayCount = (todayLogsRaw?.length ?? 0) - todayLogs.length;
 
       // ══════════════════════════════════════════════════════════
       // §17.7 - Week-Ahead Picker Invite dispatch.
