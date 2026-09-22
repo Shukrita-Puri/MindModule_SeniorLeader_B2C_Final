@@ -69,6 +69,9 @@ import { dayOfWeekFromIsoDate } from "../_shared/signal-engine/day-kind-detector
 import {
   COUNTABLE_DELIVERY_STATES as SHARED_COUNTABLE_DELIVERY_STATES,
   isCountableDeliveryState,
+  excludeSilentSync,
+  isSilentSyncNotification,
+  SILENT_SYNC_VARIANT_ID,
 } from "../_shared/countable-notification-states.ts";
 // Batch C — atomic dispatch-key claim + per-device delivery attempts.
 import {
@@ -5655,7 +5658,7 @@ serve(async (req) => {
       // suppressed, validation_rejected, expired_before_delivery,
       // configuration_failed, duplicate_claim, test_push.
       const COUNTABLE_DELIVERY_STATES = SHARED_COUNTABLE_DELIVERY_STATES;
-      const { data: todayLogs } = await supabase
+      const { data: todayLogsRaw } = await supabase
         .from("notification_log")
         .select(
           "notification_type, variant_id, sent_at, event_reference, payload",
@@ -5665,6 +5668,18 @@ serve(async (req) => {
         .lt("sent_at", todayEndUtc)
         .in("delivery_state", COUNTABLE_DELIVERY_STATES as unknown as string[])
         .order("sent_at", { ascending: false });
+      // Silent background-sync pushes are content-available only — the user
+      // never sees them, so they must not consume the daily cap or any slot.
+      const todayLogs = excludeSilentSync(
+        todayLogsRaw as Array<{
+          notification_type: string;
+          variant_id: string | null;
+          sent_at: string;
+          event_reference: string | null;
+          payload: Record<string, unknown> | null;
+        }> | null,
+      );
+      const silentSyncTodayCount = (todayLogsRaw?.length ?? 0) - todayLogs.length;
 
       // ══════════════════════════════════════════════════════════
       // §17.7 - Week-Ahead Picker Invite dispatch.
@@ -5832,9 +5847,14 @@ serve(async (req) => {
             redactUserId(userId)
           } hit daily cap (${todayLogs.length}/${DAILY_NOTIFICATION_CAP}). Skipping.`,
         );
-        trace(userId, "daily_cap", {
+      trace(userId, "daily_cap", {
           ...traceBase,
-          metadata: { ...traceBase.metadata, count: todayLogs.length, cap: DAILY_NOTIFICATION_CAP },
+          metadata: {
+            ...traceBase.metadata,
+            count: todayLogs.length,
+            cap: DAILY_NOTIFICATION_CAP,
+            silent_sync_excluded: silentSyncTodayCount,
+          },
         });
         continue;
       }
@@ -5842,9 +5862,9 @@ serve(async (req) => {
       // 2-hour suppression check
       const twoHoursAgoIso = new Date(Date.now() - 2 * 60 * 60 * 1000)
         .toISOString();
-      const { data: recentLogs } = await supabase
+      const { data: recentLogsRaw } = await supabase
         .from("notification_log")
-        .select("sent_at")
+        .select("sent_at, notification_type, variant_id")
         .eq("user_id", userId)
         .gte("sent_at", twoHoursAgoIso)
         // Fix C: a diagnostic dry-run in the last 2h must not suppress a
@@ -5852,10 +5872,16 @@ serve(async (req) => {
         // delivery lifecycle (pending / accepted / delivered / opened /
         // action_completed) count as "recently notified".
         .in("delivery_state", COUNTABLE_DELIVERY_STATES as unknown as string[])
+        // Silent background sync never reaches the user, so it can never be
+        // the "recent notification" that spaces a real nudge out.
+        .neq("variant_id", SILENT_SYNC_VARIANT_ID)
         .order("sent_at", { ascending: false })
-        .limit(1);
+        .limit(10);
 
-      const lastSentAt = recentLogs?.[0]
+      const recentLogs = (recentLogsRaw ?? []).filter(
+        (r) => !isSilentSyncNotification(r as Record<string, unknown>),
+      ) as Array<{ sent_at: string }>;
+      const lastSentAt = recentLogs[0]
         ? new Date(recentLogs[0].sent_at)
         : null;
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);

@@ -70,6 +70,12 @@ export interface ExtendedValidateOptions {
    */
   mrsScore?: number | null;
   pillContext?: PillContext | null;
+  /**
+   * Today's real events. When supplied, the body may not state a clock time
+   * or a meeting kind that no supplied event supports. Omit to keep the
+   * pre-existing behaviour untouched.
+   */
+  calendarTruth?: CalendarTruth | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -566,6 +572,111 @@ function validateBodyDataAvailability(body: string, ctx: BriefContext): Validati
   return { ok: true };
 }
 
+// ---------------------------------------------------------------------------
+// CALENDAR TRUTH GATE
+//
+// A Brief may only describe meetings that actually exist on the day it is
+// written for. Observed failure: a day whose only events were a catch-up and
+// an introductions call produced "your strategy session at 10:30" — both the
+// kind of meeting and the clock time were invented.
+//
+// Two independent rules, both evidence-based:
+//   1. Every clock time in the body must appear in the supplied event times.
+//   2. Every meeting-kind noun in the body must be supported by a supplied
+//      title or resolved sub-category.
+//
+// The gate only engages when the caller supplies calendar truth. Callers that
+// pass nothing keep today's behaviour exactly.
+// ---------------------------------------------------------------------------
+
+export interface CalendarTruth {
+  /** Local HH:mm strings for every event supplied to the prompt. */
+  allowedClockTimes: string[];
+  /** Raw titles of every event supplied to the prompt. */
+  allowedTitles: string[];
+  /** Resolved sub-category / label strings for those events, e.g. `routine_sync`. */
+  allowedDescriptors?: string[];
+}
+
+/** Meeting-kind nouns the model must never invent. */
+const MEETING_KIND_TERMS: Array<[RegExp, string]> = [
+  [/\bstrategy session\b/i, "strategy"],
+  [/\bboard (?:call|meeting|review)\b/i, "board"],
+  [/\binvestor (?:call|update|meeting)\b/i, "investor"],
+  [/\bkeynote\b/i, "keynote"],
+  [/\ball[- ]?hands\b/i, "all hands"],
+  [/\btown ?hall\b/i, "town hall"],
+  [/\boffsite\b/i, "offsite"],
+  [/\bconference\b/i, "conference"],
+  [/\binterview\b/i, "interview"],
+  [/\bappraisal\b/i, "appraisal"],
+  [/\bperformance review\b/i, "performance review"],
+  [/\bpitch\b/i, "pitch"],
+  [/\bnegotiation\b/i, "negotiation"],
+  [/\bstand[- ]?up\b/i, "standup"],
+  [/\bworkshop\b/i, "workshop"],
+  [/\bdemo\b/i, "demo"],
+  [/\bcatch[- ]?up\b/i, "catch up"],
+  [/\bpresentation\b/i, "presentation"],
+  [/\b1:1\b|\bone[- ]to[- ]one\b/i, "1:1"],
+];
+
+function normaliseClock(t: string): string {
+  const m = t.replace(".", ":").match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return t.trim();
+  return `${m[1].padStart(2, "0")}:${m[2]}`;
+}
+
+export function validateCalendarTruth(
+  body: string,
+  truth: CalendarTruth | null | undefined,
+): ValidationResult {
+  if (!truth) return { ok: true };
+  const text = body.trim();
+  if (!text) return { ok: true };
+
+  // ── Rule 1: clock times must be real. ──
+  const allowedTimes = new Set(
+    (truth.allowedClockTimes ?? [])
+      .filter((t) => typeof t === "string" && t.trim() !== "")
+      .map(normaliseClock),
+  );
+  const clockMatches = text.match(/\b\d{1,2}[:.]\d{2}\s*(?:am|pm)?\b/gi) ?? [];
+  for (const raw of clockMatches) {
+    const cleaned = raw.replace(/\s*(?:am|pm)\s*$/i, "").trim();
+    const norm = normaliseClock(cleaned);
+    if (!/^\d{2}:\d{2}$/.test(norm)) continue;
+    if (!allowedTimes.has(norm)) {
+      return {
+        ok: false,
+        reason:
+          `body states clock time "${raw.trim()}" which is not on today's calendar`,
+      };
+    }
+  }
+
+  // ── Rule 2: meeting kinds must be supported by a real event. ──
+  const haystack = [
+    ...(truth.allowedTitles ?? []),
+    ...(truth.allowedDescriptors ?? []),
+  ]
+    .join(" · ")
+    .toLowerCase()
+    .replace(/_/g, " ");
+  for (const [pattern, evidenceToken] of MEETING_KIND_TERMS) {
+    if (!pattern.test(text)) continue;
+    if (!haystack.includes(evidenceToken)) {
+      return {
+        ok: false,
+        reason:
+          `body names meeting kind "${evidenceToken}" with no matching event on today's calendar`,
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
 /** §5.2 Body validator. Requires lexicon cluster + named context + relevance-gated pattern. */
 export function validateBody(
   body: string,
@@ -627,6 +738,10 @@ export function validateBody(
     const pill = validatePillBodyConsistency(trimmed, opts.pillContext);
     if (!pill.ok) return pill;
   }
+
+  // Calendar truth — engages only when the caller supplies today's events.
+  const calendar = validateCalendarTruth(trimmed, opts?.calendarTruth ?? null);
+  if (!calendar.ok) return calendar;
 
   return { ok: true };
 }
