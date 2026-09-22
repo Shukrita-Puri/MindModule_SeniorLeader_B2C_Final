@@ -7724,15 +7724,23 @@ function tacticalClause(
     return `${pat.count} ${pat.state} days running.`;
   }
   if (hrvCorrelations) {
-    const top = Object.entries(hrvCorrelations).find(([, c]: any) =>
-      c?.count >= 2 && Math.abs(c.avgHRVDeviation) >= 10
-    );
-    if (top) {
-      const [evtType, c]: any = top;
+    // Only cite a historical HRV correlation when it belongs to THIS slot's
+    // own event type. Citing an unrelated past type ("before standup") on a day
+    // with no standup reads as a fabricated claim about today.
+    const anchorWords = String(slotAnchorTitle ?? "")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 4);
+    const relevant = anchorWords.length > 0
+      ? Object.entries(hrvCorrelations).find(([evtType, c]: any) => {
+        if (!(c?.count >= 2 && Math.abs(c.avgHRVDeviation) >= 10)) return false;
+        const key = String(evtType).toLowerCase();
+        return anchorWords.some((w) => key.includes(w) || w.includes(key));
+      })
+      : null;
+    if (relevant) {
+      const [evtType, c]: any = relevant;
       const dir = c.avgHRVDeviation < 0 ? "drops" : "lifts";
-      // Historical framing only. This correlation comes from PAST events of
-      // this type — phrasing it as "before <type>" read as if today's calendar
-      // held one ("before standup" on a day with no standup).
       return `Across your past ${evtType} blocks your HRV ${dir} ~${
         Math.abs(Math.round(c.avgHRVDeviation))
       }%.`;
