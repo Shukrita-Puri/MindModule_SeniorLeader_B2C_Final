@@ -5881,6 +5881,21 @@ serve(async (req) => {
               );
               return categoryNameOf(match ? (match.title || "") : title) ?? "";
             });
+            // CALENDAR TRUTH — the deduplicated timed meetings for today, in
+            // start order, each with its real local clock time and resolved
+            // kind. This is what the prompt may reference and the validator
+            // checks copy against.
+            todayAllMeetings = (meetingEventsToday as any[])
+              .filter((e: any) => String(e?.title ?? "").trim() !== "")
+              .map((e: any) => {
+                const resolved = enrichOf({ title: String(e.title) });
+                return {
+                  time: fmtLocalHHmmToday(new Date(e.start_time)),
+                  title: String(e.title).trim(),
+                  category: resolved.category?.name ?? "",
+                  subcategory: resolved.subcategory ?? "",
+                };
+              });
             // Also re-format nextHighStakesEvent / nextEventAny clock time using
             // the same IANA-aware formatter so downstream consumers (UI + prompt)
             // share one source of truth.
