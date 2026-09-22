@@ -10196,6 +10196,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   {
                     mrsScore: scoreForBand,
                     pillContext,
+                    calendarTruth: todayAllMeetings.length > 0
+                      ? {
+                        allowedClockTimes: todayAllMeetings.map((m) => m.time),
+                        allowedTitles: todayAllMeetings.map((m) => m.title),
+                        allowedDescriptors: todayAllMeetings.flatMap((m) =>
+                          [m.subcategory, m.category].filter((s) => !!s)
+                        ),
+                      }
+                      : null,
                   },
                 );
                 if (specValidation.ok) {
