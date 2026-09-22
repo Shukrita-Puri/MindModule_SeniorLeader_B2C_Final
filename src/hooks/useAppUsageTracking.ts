@@ -157,6 +157,10 @@ export function useAppUsageTracking(): void {
       if (!route) return;
       const elapsed = accumulated.current + (Date.now() - enteredAt.current);
       accumulated.current = 0;
+      // Consume the visit: a second close() (cleanup then next effect run) must
+      // never re-record the same screen.
+      currentRoute.current = null;
+      enteredAt.current = Date.now();
       if (elapsed < MIN_TRACKED_MS) return;
       queue.push({
         route,
