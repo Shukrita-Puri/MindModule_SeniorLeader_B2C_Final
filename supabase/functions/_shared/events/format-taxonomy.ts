@@ -7,7 +7,7 @@
 // Single source of truth: ./event-categories.ts (selfRegulationFocus) +
 // ./event-classifier.ts (classifyEvent). This file never defines taxonomy.
 
-import { classifyEvent } from './event-classifier.ts';
+import { resolveEvent } from './resolve-event-category.ts';
 import { EVENT_CATEGORIES, type EventCategoryId } from './event-categories.ts';
 
 export interface FormatTaxonomyEventInput {
