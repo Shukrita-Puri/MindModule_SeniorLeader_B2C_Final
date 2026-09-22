@@ -51,7 +51,7 @@ import {
   FRAMEWORK_PILLARS,
 } from "../_shared/events/event-categories.ts";
 // A–H resolution via the single canonical entry point.
-import { type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
+import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
 import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import {
   CATEGORY_MAX_SLOTS,
@@ -171,6 +171,7 @@ import {
   type CausalitySignalSummary,
   composeEvidenceWhyLine,
   renderEvidenceBlock,
+  type LoadContext,
   type StrategicContext,
   type WhyEvidenceBundle,
 } from "../_shared/plan/why-signals.ts";
@@ -4655,6 +4656,8 @@ interface SharedContext {
   strategicContext: StrategicContext | null;
   /** 14-day resting-HR baseline — required before any "elevated" claim. */
   restingHRBaseline: number | null;
+  /** Observed load behind / ahead of today — justifies recovery on quiet days. */
+  loadContext: LoadContext | null;
 }
 
 
@@ -4806,6 +4809,7 @@ async function buildSharedContext(
     signalSummary: null,
     strategicContext: null,
     restingHRBaseline: null,
+    loadContext: null,
   };
 
   // ── Travel SSOT (shared with Brief + Smart Nudges) ─────────────────────
@@ -4871,6 +4875,78 @@ async function buildSharedContext(
     console.warn(
       "[generate-mastery-plan] why-evidence sources unavailable:",
       evidenceErr?.message,
+    );
+  }
+
+  // ── Observed load behind / ahead of today (read-only, failure-tolerant) ──
+  // Why-lines on a quiet day must be justified by the days around it, not by
+  // an empty calendar. A–H comes from the SINGLE resolver, never raw columns.
+  try {
+    const fromIso = new Date(Date.now() - 7 * 86400000).toISOString();
+    const toIso = new Date(Date.now() + 48 * 3600000).toISOString();
+    const { data: loadRows } = await supabaseClient
+      .from("calendar_events")
+      .select("title, start_time, end_time, is_all_day, event_category, event_subcategory")
+      .eq("user_id", req.userId)
+      .gte("start_time", fromIso)
+      .lte("start_time", toIso)
+      .order("start_time", { ascending: true });
+
+    const highStakesDays = new Set<string>();
+    let nextHighStakes: LoadContext["nextHighStakes"] = null;
+    const nowMs = Date.now();
+    const todayLocal = getLocalDateISO(req.timezoneOffset);
+    let meetingsToday = 0;
+    const seen = new Set<string>();
+    for (const row of ((loadRows ?? []) as any[])) {
+      const title = String(row?.title ?? "").trim();
+      const startMs = new Date(String(row?.start_time ?? "")).getTime();
+      if (!title || !Number.isFinite(startMs)) continue;
+      // Collapse duplicate provider copies of the same meeting.
+      const dedupeKey = `${title.toLowerCase()}::${startMs}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      const localDate = new Date(startMs - (req.timezoneOffset ?? 0) * 60000)
+        .toISOString().slice(0, 10);
+      const allDay = row?.is_all_day === true;
+      if (localDate === todayLocal && !allDay) meetingsToday++;
+      let cat: string | null = null;
+      try {
+        cat = resolveEvent(row).categoryId ?? null;
+      } catch (_e) {
+        cat = null;
+      }
+      const highStakes = cat === "A" || cat === "B" || cat === "C";
+      if (!highStakes) continue;
+      highStakesDays.add(localDate);
+      if (!nextHighStakes && startMs > nowMs) {
+        nextHighStakes = {
+          title,
+          hoursUntil: (startMs - nowMs) / 3600000,
+        };
+      }
+    }
+    // Unbroken run of high-stakes days ending yesterday.
+    let run = 0;
+    for (let back = 1; back <= 7; back++) {
+      const d = new Date(nowMs - (req.timezoneOffset ?? 0) * 60000 - back * 86400000)
+        .toISOString().slice(0, 10);
+      if (highStakesDays.has(d)) run++;
+      else break;
+    }
+    const last7 = Array.from(highStakesDays).filter((d) => d < todayLocal).length;
+    ctx.loadContext = {
+      highStakesDaysLast7: last7,
+      priorHighStakesRunDays: run,
+      meetingsToday,
+      nextHighStakes,
+      dayShapeId: null,
+    };
+    console.info("[generate-mastery-plan][load-context]", ctx.loadContext);
+  } catch (loadErr: any) {
+    console.warn(
+      "[generate-mastery-plan] load-context unavailable:",
+      loadErr?.message,
     );
   }
 
@@ -8076,6 +8152,7 @@ async function applyV51Enrichment(
         travelDebtActive: ceo.includes("circadian_travel") ? true : null,
       },
       strategic: shared.strategicContext,
+      load: shared.loadContext,
       behavioural: {
         practiceImpact: shared.causeEffect?.practiceImpact ?? [],
         selectedPracticeId: (hm.practice?.id ?? null) as string | null,
@@ -8116,6 +8193,44 @@ async function applyV51Enrichment(
         : ph === "during"
         ? "During"
         : "Prepare";
+    }
+    // Deterministic valence guard — the deterministic line goes through the
+    // SAME validator the LLM output does, so a state-contradicting or
+    // ungrounded deterministic line can never ship. On rejection the legacy
+    // composer is re-run WITHOUT window signals (the usual source of the
+    // contradiction), and the copy bank below is the final floor.
+    if (fallbackWhyLine) {
+      const detVerdict = validateWhyLine({
+        text: fallbackWhyLine,
+        stateBand: tierToStateBand(req.innerReadinessTier ?? null),
+        slotAnchor: {
+          eventTitle: anchorTitleForEvidence,
+          categoryId: anchorCategoryForEvidence,
+          phase: ((hm as any).jitPhase as "pre" | "during" | "post") ?? null,
+        },
+        echoTexts: [hm.timeLabel ?? null, hm.practice?.title ?? null],
+        arcPosition: arcPositionFromPhase(
+          ((hm as any).jitPhase as "pre" | "during" | "post") ?? null,
+        ),
+      });
+      if (!detVerdict.ok) {
+        console.log(
+          `[why-llm.telemetry] idx=${idx} fallback=deterministic_repair reject=${detVerdict.reason}`,
+        );
+        fallbackWhyLine = composeWhyLine(
+          hm,
+          req,
+          shared,
+          hrvCorrelations,
+          ceo,
+          briefClaim,
+          fusion,
+          {
+            timeOfDay: timeOfDayForWhy,
+            windowSignals: null,
+          },
+        );
+      }
     }
     // Deterministic copy bank — the floor. Runs when the evidence composer
     // and the legacy composer both come back empty/too short, or when the
@@ -8708,19 +8823,61 @@ export function deriveStructuralDayFlags(
   lightDayKind: LightDayKind | null;
   /** Timed meetings on the day — 2+ is a packed day (never light). */
   realMeetingCount: number;
+  /** Resolver-derived proof behind each structural flag (diagnostics only). */
+  structuralEvidence: string[];
 } {
   const events = Array.isArray(calendarEvents) ? calendarEvents : [];
   const localNow = opts?.now ?? new Date();
   const dayOfWeek = opts?.userLocale?.dayOfWeek ?? localNow.getUTCDay();
-  const hasTravelDay = opts?.travelDaySignal === true || events.some((e: any) => {
-    return e?.eventCategory === "G";
+
+  // ── A–H via the SINGLE entry point (resolveEvent), once per event ──
+  // Raw `eventCategory` / `eventSubcategory` columns are NOT trusted on their
+  // own: provider copies frequently carry no category at all, so reading them
+  // directly produced structural arcs with no event behind them. resolveEvent
+  // already prefers a persisted category when the row has one (layer 3).
+  const structuralEvidence: string[] = [];
+  const resolvedEvents = events.map((e: any) => {
+    let resolved: ReturnType<typeof resolveEvent> | null = null;
+    try {
+      resolved = resolveEvent(e);
+    } catch (_err) {
+      resolved = null;
+    }
+    return { raw: e, resolved };
   });
-  const hasConferenceDay = events.some((e: any) => {
-    return e?.eventCategory === "F" && e?.eventSubcategory !== "conf.offsite";
-  });
-  const hasOffsiteDay = events.some((e: any) => {
-    return e?.eventSubcategory === "conf.offsite";
-  });
+  const matchesCategory = (letter: "F" | "G") =>
+    resolvedEvents.filter((r) => r.resolved?.categoryId === letter);
+  const isOffsite = (r: { resolved: ReturnType<typeof resolveEvent> | null }) =>
+    r.resolved?.subtype?.id === "conf.offsite" ||
+    r.resolved?.subcategory === "workshop";
+
+  const travelMatches = matchesCategory("G");
+  const hasTravelDay = opts?.travelDaySignal === true || travelMatches.length > 0;
+  if (travelMatches.length > 0) {
+    structuralEvidence.push(
+      `travel: ${travelMatches.map((r) => r.resolved?.subcategory ?? "G").join(", ")}`,
+    );
+  } else if (opts?.travelDaySignal === true) {
+    structuralEvidence.push("travel: travel-day SSOT signal (no calendar event)");
+  }
+
+  const conferenceMatches = matchesCategory("F").filter((r) => !isOffsite(r));
+  const hasConferenceDay = conferenceMatches.length > 0;
+  if (hasConferenceDay) {
+    structuralEvidence.push(
+      `conference: ${
+        conferenceMatches.map((r) => String(r.raw?.title ?? "untitled")).join(", ")
+      }`,
+    );
+  }
+
+  const offsiteMatches = matchesCategory("F").filter(isOffsite);
+  const hasOffsiteDay = offsiteMatches.length > 0;
+  if (hasOffsiteDay) {
+    structuralEvidence.push(
+      `offsite: ${offsiteMatches.map((r) => String(r.raw?.title ?? "untitled")).join(", ")}`,
+    );
+  }
   // Canonical Rest Day (SSOT): rest is a function of weekend / explicit PTO /
   // applicable public holiday — never of empty calendars alone. Calendar
   // work evidence overrides all three. See _shared/availability/*.
@@ -8823,6 +8980,7 @@ export function deriveStructuralDayFlags(
       weekAhead: weekAhead.active,
       hasTravelDay,
       hasConferenceDay,
+      structuralEvidence,
     });
   } catch { /* logging is best-effort */ }
 
@@ -8840,6 +8998,7 @@ export function deriveStructuralDayFlags(
     isLightDay,
     lightDayKind: isLightDay ? lightDay.kind : null,
     realMeetingCount,
+    structuralEvidence,
   };
 }
 

@@ -110,6 +110,24 @@ export interface BehaviouralSignals {
   completionStreakDays?: number | null;
 }
 
+/**
+ * Observed load around today — the multi-day context that makes a recovery
+ * or protection claim honest on a day whose calendar looks quiet. Every field
+ * is nullable; a null field simply produces no evidence.
+ */
+export interface LoadContext {
+  /** Days in the last 7 that carried at least one high-stakes (A/B/C) event. */
+  highStakesDaysLast7: number | null;
+  /** Unbroken run of high-stakes days ending yesterday. */
+  priorHighStakesRunDays: number | null
+  /** Timed meetings on today's calendar (post-dedupe). */
+  meetingsToday: number | null;
+  /** Next high-stakes event inside the next 48h, when there is one. */
+  nextHighStakes: { title: string; hoursUntil: number } | null;
+  /** Persisted day shape for today (load-shape SSOT label id). */
+  dayShapeId: string | null;
+}
+
 export interface WhyEvidenceInput {
   anchor: {
     eventTitle: string | null;
@@ -123,6 +141,8 @@ export interface WhyEvidenceInput {
   immediate: ImmediateSignals;
   strategic: StrategicContext | null;
   behavioural: BehaviouralSignals | null;
+  /** Optional observed-load context (see LoadContext). */
+  load?: LoadContext | null;
 }
 
 export interface WhyEvidenceBundle {
@@ -440,6 +460,15 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         n: 0,
         phrase: `Recovery is ${mag}% below your own baseline this morning.`,
       });
+    } else if (i.hrvDeltaPct <= -6) {
+      out.push({
+        id: "immediate.hrv_soft",
+        tier: "immediate",
+        valence: "risk",
+        confidence: "emerging",
+        n: 0,
+        phrase: `Recovery is running ${mag}% under your own baseline today.`,
+      });
     } else if (i.hrvDeltaPct >= 15) {
       out.push({
         id: "immediate.hrv_up",
@@ -448,6 +477,15 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
         confidence: "emerging",
         n: 0,
         phrase: `Recovery is ${mag}% above your baseline going in.`,
+      });
+    } else {
+      out.push({
+        id: "immediate.hrv_at_baseline",
+        tier: "immediate",
+        valence: "positive",
+        confidence: "weak",
+        n: 0,
+        phrase: `Recovery is sitting at your own baseline — today's job is keeping it there.`,
       });
     }
   }
@@ -555,6 +593,68 @@ function immediateEvidence(input: WhyEvidenceInput): WhyEvidence[] {
   return out;
 }
 
+/**
+ * Observed-load evidence. This is the tier that answers "why recovery today"
+ * on a light day: the justification comes from the days BEHIND and the days
+ * AHEAD, not from today's (quiet) calendar.
+ */
+function loadEvidence(input: WhyEvidenceInput): WhyEvidence[] {
+  const out: WhyEvidence[] = [];
+  const l = input.load;
+  if (!l) return out;
+
+  const run = Number(l.priorHighStakesRunDays ?? 0);
+  const last7 = Number(l.highStakesDaysLast7 ?? 0);
+  const meetings = typeof l.meetingsToday === "number" ? l.meetingsToday : null;
+  const quietToday = meetings !== null && meetings <= 1;
+
+  if (run >= 2) {
+    out.push({
+      id: "behavioural.prior_high_stakes_run",
+      tier: "behavioural",
+      valence: "risk",
+      confidence: run >= 3 ? "strong" : "emerging",
+      n: run,
+      phrase: quietToday
+        ? `${run} high-stakes days back-to-back into today — this is the first real gap to clear them.`
+        : `${run} high-stakes days back-to-back before today.`,
+    });
+  } else if (last7 >= 3) {
+    out.push({
+      id: "behavioural.high_stakes_week",
+      tier: "behavioural",
+      valence: "risk",
+      confidence: last7 >= 4 ? "strong" : "emerging",
+      n: last7,
+      phrase: quietToday
+        ? `${last7} of your last seven days carried high-stakes work — today is where that gets paid back.`
+        : `${last7} of your last seven days carried high-stakes work.`,
+    });
+  }
+
+  const next = l.nextHighStakes;
+  if (next && next.title) {
+    const hrs = Math.max(0, Math.round(next.hoursUntil));
+    const when = hrs <= 3
+      ? "in the next few hours"
+      : hrs <= 14
+      ? "later today"
+      : hrs <= 30
+      ? "tomorrow"
+      : "inside two days";
+    out.push({
+      id: "immediate.next_high_stakes",
+      tier: "immediate",
+      valence: "strategic",
+      confidence: "strong",
+      n: 0,
+      phrase: `${next.title} lands ${when} — what you do now is what you bring into it.`,
+    });
+  }
+
+  return out;
+}
+
 function score(e: WhyEvidence): number {
   return TIER_WEIGHT[e.tier] + VALENCE_WEIGHT[e.valence] * 2 +
     CONFIDENCE_WEIGHT[e.confidence] + Math.min(e.n, 5) * 0.1;
@@ -569,6 +669,7 @@ export function buildWhyEvidence(input: WhyEvidenceInput): WhyEvidenceBundle {
     ...patternEvidence(input),
     ...behaviouralEvidence(input),
     ...strategicEvidence(input),
+    ...loadEvidence(input),
     ...immediateEvidence(input),
   ];
   const ranked = items.sort((a, b) => score(b) - score(a));

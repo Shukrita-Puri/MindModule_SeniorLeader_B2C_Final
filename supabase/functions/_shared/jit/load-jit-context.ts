@@ -38,7 +38,8 @@ import {
 import {
   normalizeEventTypeKey,
 } from "../plan/week-ahead-mode.ts";
-import { coarseEventType } from "../events/event-classifier.ts";
+import { coarseEventType, coarseEventTypeFromSubtypeId } from "../events/event-classifier.ts";
+import { resolveEvent } from "../events/resolve-event-category.ts";
 
 /** Minimum shape the loader needs from each calendar_events row. */
 export interface JitContextCalendarRow {
@@ -195,8 +196,17 @@ export async function loadJitContextForEvents(
   const legacyKeysByEventId = new Map<string, { eventCategory: string; eventTypeKey: string }>();
   for (const ev of events) {
     if (!ev?.id || !ev?.title) continue;
+    // A–H via the SINGLE entry point; the coarse memory vocabulary is
+    // unchanged, we just stop re-classifying the title with the legacy v1
+    // pass. Falls back to the legacy key when nothing resolves.
+    let resolvedCoarse: string | null = null;
+    try {
+      resolvedCoarse = coarseEventTypeFromSubtypeId(resolveEvent(ev).subtype?.id ?? null);
+    } catch (_e) {
+      resolvedCoarse = null;
+    }
     legacyKeysByEventId.set(ev.id, {
-      eventCategory: coarseEventType(ev.title),
+      eventCategory: resolvedCoarse ?? coarseEventType(ev.title),
       eventTypeKey: normalizeEventTypeKey(ev.title),
     });
   }

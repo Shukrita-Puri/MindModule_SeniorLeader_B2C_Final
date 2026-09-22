@@ -28,7 +28,26 @@ export function resolveEventCategory(
   // Actually, wait, let's keep it clean. If it's a known string, it'll bypass subtype mapping.
   let persistedSubtypeId = raw?.event_subcategory ?? raw?.event?.event_subcategory ?? null;
   
-  if (persistedCategory) {
+  // A persisted stamp is only AUTHORITATIVE when a human put it there (or it
+  // was written with high confidence). Machine stamps (`plan_resolver` and
+  // friends at medium/low confidence) are historical guesses: when the live
+  // classifier has an answer it wins, otherwise the stamp is still used as a
+  // fallback. This is what stops a stale "focus work" stamp from surviving a
+  // classifier improvement on every surface that reads A–H.
+  const resolvedBy = String(
+    (raw?.category_resolved_by ?? raw?.event?.category_resolved_by ?? "") as string,
+  ).toLowerCase();
+  const persistedConfidence = String(
+    (raw?.category_confidence ?? raw?.event?.category_confidence ?? "") as string,
+  ).toLowerCase();
+  const persistedIsAuthoritative = !!persistedCategory && (
+    resolvedBy === "user_override" || resolvedBy === "user_tag" ||
+    resolvedBy === "user" || persistedConfidence === "high" ||
+    // No provenance recorded at all → legacy row, keep the old behaviour.
+    (!resolvedBy && !persistedConfidence)
+  );
+
+  if (persistedIsAuthoritative) {
     return {
       categoryId: persistedCategory as EventCategoryId,
       subtypeId: persistedSubtypeId,
@@ -42,6 +61,15 @@ export function resolveEventCategory(
     title,
     ...inputOptions
   });
+
+  if (!v2Result.category && persistedCategory) {
+    return {
+      categoryId: persistedCategory as EventCategoryId,
+      subtypeId: persistedSubtypeId,
+      confidence: 'medium',
+      source: 'layer3_persisted'
+    };
+  }
 
   return {
     categoryId: v2Result.category,

@@ -185,8 +185,26 @@ export function allocatePlanSlots(input: SlotAllocationInput): SlotAllocation {
     return buildNamedFullArcResult("travel_day", "travel_day_full_arc", ranked, "G");
   }
 
-  if (input.hasConferenceDay && (!top || top.categoryId === "F")) {
-    return buildNamedFullArcResult("conference_day", "conference_day_full_arc", ranked, "F");
+  // Conference arc requires EVIDENCE: a resolved Category F event on the day
+  // AND at least one ranked candidate for it. The old `!top` escape committed
+  // to a conference day with zero candidates, which is how a plain two-meeting
+  // day was persisted as `conference_day` with three state fallbacks.
+  if (input.hasConferenceDay && top) {
+    if (top.categoryId === "F") {
+      return buildNamedFullArcResult("conference_day", "conference_day_full_arc", ranked, "F");
+    }
+    const confIdx = ranked.findIndex((c) => c.categoryId === "F");
+    if (confIdx > 0) {
+      const confEventId = ranked[confIdx].eventId;
+      const confFan = ranked.filter((c) => c.eventId === confEventId);
+      const rest = ranked.filter((c) => c.eventId !== confEventId);
+      return buildNamedFullArcResult(
+        "conference_day",
+        "conference_day_full_arc",
+        [...confFan, ...rest],
+        "F",
+      );
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════
