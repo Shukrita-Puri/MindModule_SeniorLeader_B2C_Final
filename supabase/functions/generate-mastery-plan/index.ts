@@ -2763,9 +2763,17 @@ function calculateCalendarContext(
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
 
-  // All events today (full day)
+  // All TIMED events today. All-day entries (a fast, an OOO marker, a holiday)
+  // carry no meeting load: counting their 24h span made a two-meeting day read
+  // as 25 hours and classify as "extreme".
   const todayEvents = allDayEvents.filter((e: any) => {
+    if (e?.is_all_day === true || e?.isAllDay === true) return false;
     const start = new Date(e.start_time || e.startTime);
+    const end = new Date(e.end_time || e.endTime);
+    if (Number.isFinite(start.getTime()) && Number.isFinite(end.getTime())) {
+      // Defensive: anything spanning 20h+ is a day marker, not a meeting.
+      if ((end.getTime() - start.getTime()) / 3_600_000 >= 20) return false;
+    }
     return start.toISOString().split("T")[0] === todayStr;
   });
 
@@ -7706,6 +7714,7 @@ function tacticalClause(
   shared: SharedContext,
   hrvCorrelations: any,
   ceo: CeoRealityTag[],
+  slotAnchorTitle?: string | null,
 ): string | null {
   if (ceo.includes("post_peak_hangover")) {
     return "Yesterday's peak left a recovery gap.";
@@ -7721,9 +7730,12 @@ function tacticalClause(
     if (top) {
       const [evtType, c]: any = top;
       const dir = c.avgHRVDeviation < 0 ? "drops" : "lifts";
-      return `Your HRV ${dir} ~${
+      // Historical framing only. This correlation comes from PAST events of
+      // this type — phrasing it as "before <type>" read as if today's calendar
+      // held one ("before standup" on a day with no standup).
+      return `Across your past ${evtType} blocks your HRV ${dir} ~${
         Math.abs(Math.round(c.avgHRVDeviation))
-      }% before ${evtType}.`;
+      }%.`;
     }
   }
   const trend: any = (shared as any)?.innerReadinessPattern;
@@ -7878,7 +7890,7 @@ function composeWhyLine(
     (corr.occurrences ?? 0) >= 3;
 
   let strat = strategicAnchorClause(req, ceo, slotAnchorCategoryId);
-  let tac = tacticalClause(req, shared, hrvCorrelations, ceo);
+  let tac = tacticalClause(req, shared, hrvCorrelations, ceo, slotAnchorTitle);
   let imm = immediateClause(req, ceo, slotAnchorCategoryId, {
     timeOfDay: opts.timeOfDay ?? null,
     windowSignals: opts.windowSignals ?? null,
