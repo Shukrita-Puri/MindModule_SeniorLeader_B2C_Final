@@ -5671,7 +5671,13 @@ serve(async (req) => {
       // Silent background-sync pushes are content-available only — the user
       // never sees them, so they must not consume the daily cap or any slot.
       const todayLogs = excludeSilentSync(
-        todayLogsRaw as Array<Record<string, unknown>> | null,
+        todayLogsRaw as Array<{
+          notification_type: string;
+          variant_id: string | null;
+          sent_at: string;
+          event_reference: string | null;
+          payload: Record<string, unknown> | null;
+        }> | null,
       );
       const silentSyncTodayCount = (todayLogsRaw?.length ?? 0) - todayLogs.length;
 
