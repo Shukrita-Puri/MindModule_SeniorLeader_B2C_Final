@@ -9814,6 +9814,17 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                       pillContext: assessmentContext
                         ? buildPillContextFromAssessment(assessmentContext)
                         : null,
+                      // Reject invented meeting kinds and clock times. Only
+                      // engages when today's meetings were resolved.
+                      calendarTruth: todayAllMeetings.length > 0
+                        ? {
+                          allowedClockTimes: todayAllMeetings.map((m) => m.time),
+                          allowedTitles: todayAllMeetings.map((m) => m.title),
+                          allowedDescriptors: todayAllMeetings.flatMap((m) =>
+                            [m.subcategory, m.category].filter((s) => !!s)
+                          ),
+                        }
+                        : null,
                     },
                   );
                   if (!atomic.ok) {
