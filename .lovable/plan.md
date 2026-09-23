@@ -110,33 +110,39 @@ G Travel at category level (3). Not yet: B.fundraising 2, F 2, C.media 1.
 
 ## 2. Travel recounted by distinct day — including short-haul and day trips
 
-A travel day is **one distinct local day** with travel evidence from any of
-three sources, read from the existing travel modules (no new definition, no
-edits to them):
+A travel day is **one distinct local day** with travel evidence that is
+specifically about being away, read from the existing travel modules (no new
+definition, no edits to them):
 
-1. a recorded trip window (`travel_state.meta.trips`, calendar- or
-   location-sourced),
-2. distance from home above the existing 50 km threshold on that day (this is
-   what makes London → Oxford a travel day, same timezone, no flight),
-3. travel-titled calendar evidence (flight, hotel, transit, offsite).
+1. distance from home above the existing 50 km threshold on that day, or a
+   location record placing you away (this is what makes London → Oxford a travel
+   day — same timezone, no flight),
+2. a flight, hotel or transit entry for that day,
+3. an invite address away from your home area,
+4. a recorded trip window whose own evidence is one of the above.
 
-Flight + hotel + transit on the same day is one day, never three. Consecutive
-days inside one trip each count as their own day, and the trip is never
-double-counted.
+**Never travel on its own:** a conference, off-site, workshop or summit title. A
+conference can coincide with travel, but only the evidence above makes it a
+travel day — a local or online conference is not travel.
+
+Flight + hotel + transit on the same day is one day, never three. A day trip is
+a one-day trip. Consecutive days inside one trip each count as a day, and the
+trip is counted once.
 
 What your stored data actually holds today:
 
-- Calendar travel evidence: 9, 15, 17 August (one trip, 9–17 Aug).
-- Recorded trip windows: 17 Sep (offsite) and 29 Sep (flight, upcoming). Note
-  these windows only cover a rolling ±30 days, so older ones are gone.
-- Location history: 138 position fixes across 25 days, starting 16 July, and
-  currently 0.05 km from home.
+- Confirmed travel: 9, 15 and 17 August — one trip, 9–17 Aug.
+- 17 September: an online conference, not travel (the stored "offsite" window
+  came from the title, which the new rule rejects).
+- 29 September: hasn't happened, so it counts for nothing.
+- Location history: 138 position fixes across 25 days from 16 July; currently
+  0.05 km from home.
 
-So the honest count today is **5 distinct travel days** (9, 15, 17 Aug, 17 Sep,
-and 29 Sep ahead). Your 1 September Oxford day trip left no stored evidence —
-no calendar entry, no trip window, no position fix beyond home that day — so it
-cannot be counted retrospectively. From now on the distance rule records days
-like it automatically; I won't invent it backwards.
+So the honest count is **3 confirmed travel days inside 1 trip**. Your
+1 September Oxford day trip left no stored evidence — no calendar entry, no trip
+window, no position fix away from home that day — so it cannot be counted
+retrospectively. From now on the distance rule records days like it
+automatically; I won't invent it backwards.
 
 ## 3. Sleep and recovery
 
@@ -219,7 +225,7 @@ signal_summary.subtype_patterns_365: {
       label: "Travel",
       measure: "rhr",
       unit: "trip",                  // occurrences are trips, not days
-      n: 2,                          // number of separate trips
+      n: 1,                          // number of separate confirmed trips
       perDay:  { deltaPct: 12.4, n: 5 },   // avg change per travel day
       perTrip: { deltaPct: 14.1, recoveryDays: 2, n: 2 }, // whole-trip effect
       direction: "harm",
@@ -290,10 +296,11 @@ the old data, say so and I will leave it alone.
 
 ## 9. Travel counted by trip — your real number
 
-Trips on record: **9–17 August** (3 travel days) and **17 September** (1 day) —
-so **2 completed trips**, plus 29 September ahead. Under the 3-trip rule,
-Travel does **not** qualify today, which is exactly why the 22 September
-reminder must be refused.
+With conference-only days excluded, exactly **one completed trip** stands up:
+**9–17 August** (3 confirmed travel days). 17 September was an online conference,
+not travel, and 29 September hasn't happened. So under the 3-trip rule Travel is
+nowhere near qualifying — which is precisely why the 22 September reminder must
+be refused.
 
 Measured both ways inside the category entry: per travel day (average change vs
 your baseline across all travel days) and per trip (whole-trip change plus days
@@ -432,19 +439,22 @@ confirmed on the day by distance from home over the existing 50 km threshold, a
 trip window, or a location record. Planned travel that didn't happen never
 counts. **Confirmed: the current count of 2 trips excludes 29 September.**
 
-## 18. 17 September — both, and why
+## 18. 17 September — F Conferences only, not Travel
 
-That day holds two different things:
+You are right, and the stored data is wrong. 17 September holds "The AI:ROI
+Conference", which was online. It counts as **F Conferences (attending)** and
+**not as Travel**. The existing trip window that labels it "offsite" was created
+by the conference title alone — that assumption is exactly what I am removing.
 
-- the calendar event "The AI:ROI Conference", which resolves to **F Conferences
-  (attending)**, and
-- a recorded trip window for 17 Sep with evidence "offsite", which makes it a
-  **Travel** day too.
+**A conference is never travel by itself.** A conference day only also counts as
+travel when there is independent evidence for that day: a flight or hotel entry,
+an invite address away from your home area, or distance from home over the
+existing 50 km threshold / a location record confirming you were away. A local
+or online conference is a conference and nothing more.
 
-So it counts once under F and once under G. That is correct rather than
-double-counting: they are separate patterns answering separate questions ("what
-do conference days cost me?" and "what does being away cost me?"), and no single
-message ever cites both for the same day.
+This is read-only for the travel modules — I don't change them or the stored
+window; the 365 pass simply refuses conference-only evidence when it counts
+travel occurrences.
 
 ## 19. Title reading — logged, not fixed here
 
