@@ -434,10 +434,9 @@ schema change.
 ## 17. Upcoming events — awareness only, confirmed
 
 An upcoming event sets the "right time" rule and nothing else. It is never an
-occurrence. A day becomes a travel occurrence only after it happens and is
-confirmed on the day by distance from home over the existing 50 km threshold, a
-trip window, or a location record. Planned travel that didn't happen never
-counts. **Confirmed: the current count of 2 trips excludes 29 September.**
+occurrence — see section 21 for how a day is confirmed afterwards. Planned travel
+that didn't happen never counts. **Confirmed: the count of 1 trip / 3 travel days
+excludes 29 September.**
 
 ## 18. 17 September — F Conferences only, not Travel
 
@@ -465,14 +464,65 @@ stops it from becoming a travel occurrence**, because a travel occurrence
 requires same-day confirmation from distance, a trip window or a location record
 — a title alone can never create one.
 
-## 20. Notes for the later Insights run
+## 20. Later-run notes — the full list
 
-- `forceArcCategoryIds` in generate-mastery-plan (line ~6241) uses the 60-day
-  `event_to_hrv` with no occurrence minimum. Left exactly as is; to be revisited
-  with the Insights migration.
-- Moving Insights onto the 365 data means re-pointing
-  `performance-rhythm-insights` and its card fields, after which the 60-day pass
-  can be retired.
-- Title misreading (point 19).
-- Post-trip observation message (Stage 1, point 9).
+1. **Run 2: cognition** into the 365-day pass, as written up in section 15.
+2. **Title reading accuracy** — e.g. "First Flight Innovation Forum" read as a
+   flight.
+3. **Post-trip observation message** — a live read on the trip you just finished,
+   no 3-trip requirement.
+4. **Move Insights onto the 365-day data**, re-pointing
+   `performance-rhythm-insights` and its card fields, then retire the 60-day pass.
+5. **`forceArcCategoryIds`** (generate-mastery-plan ~6241) — add the
+   3-occurrence minimum and move it to the 365-day data. Untouched in this run.
+6. **JIT scoring** (`patternHit` in `_shared/jit/tactical-signals.ts`) onto the
+   365-day data with the 3-occurrence minimum — and I will show you which cards
+   would change before doing it.
+
+## 21. How travel is detected and confirmed
+
+**Before the day — awareness only, never an occurrence.** Travel is expected
+from a flight, hotel or transit entry, or from an invite whose location field is
+more than 50 km from home. The invite address ranks above the title, because it
+is a real place rather than a guess from words. This only feeds the "right time"
+rule (evening before / on the day).
+
+**After the day — what makes it count:**
+
+1. **If location data exists for that day, location decides.** Within 50 km of
+   home all day = not a travel day, whatever the calendar, invite address or trip
+   window says. Beyond 50 km = travel day.
+2. **Location-only travel counts.** Over 50 km with nothing in the calendar is
+   still a travel day — your Oxford day trip — recorded in the 365-day pass and
+   labelled `source: "location_detected"` since there is no event title. This
+   uses the existing location check unchanged.
+3. **Calendar evidence counts only when there is no location data** for that day:
+   a flight, hotel or transit entry, an invite address over 50 km from home, or a
+   trip window — and only when that window was not created from a conference,
+   off-site or event title.
+
+**Location retention:** there is no cleanup or expiry job for the location
+record — readings are kept indefinitely and are only removed when an account is
+deleted. Your history starting 16 July is simply when the phone began reporting,
+not a deletion. Even so, the 365-day pass carries forward every travel day it has
+already confirmed, exactly as it does for trips, so nothing can be lost if
+retention ever changes. No changes to the location check or the database.
+
+**Tests for this ladder:**
+
+- "First Flight Innovation Forum" with location at home → not travel.
+- Invite 200 km away, attended online, location at home → not travel.
+- Flight entry with location abroad → travel.
+- No calendar entry, location 80 km from home → travel, "detected by location".
+- Flight entry with no location data for that day → counts.
+- Invite address over 50 km the day before → day-before awareness only, not
+  counted until confirmed.
+
+## 22. Corrected numbers — confirmed
+
+**1 trip (9–17 August), 3 confirmed travel days.** 17 September is a conference,
+not travel; 29 September hasn't happened. Sections 2, 9, 17 and the example
+structure now all say this, and the Stage 3 dry run will print the actual stored
+Travel entry for your account so you can check it against these numbers.
+
 
