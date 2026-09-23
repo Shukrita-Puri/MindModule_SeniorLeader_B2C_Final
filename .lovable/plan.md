@@ -1,122 +1,156 @@
-# Pattern reminders: enough evidence, right time, right context
+# Pattern reminders: real occurrence counts, subtype-level evidence, right time
 
-## What went wrong (verified on your live account)
+## Answers first
 
-The 09:30 reminder on 22 Sep was `pattern_alert` (`FB-PATTERN::B`). The stored
-finding behind it (`causality_findings`, 21 Sep):
+### (a) Where patterns are stored today, and what I would add
+
+Table: `public.causality_findings`. Key `(user_id, pattern_kind, computed_for_date)`,
+`pattern_kind = 'cause_effect_v2'`. Columns: `payload jsonb` (what the Insights
+card renders), `signal_summary jsonb` (the flat projection nudges/Plan/Brief
+read), plus `event_subcategory text`.
+
+Both stores are already JSON, so **no new column and no new table**. I add new
+top-level keys inside `signal_summary`:
 
 ```text
-event_to_rhr: [{ event_type: "Travel", rhrDeltaPct: 27.3, n: 2, lastSeen: "2026-08-17", confidence: "emerging" }]
+subtype_to_rhr: [{ categoryId, subtypeId, label, n, deltaPct, confidence,
+                   lastSeen, occurrences: [{ date, title }] }]
+subtype_to_hrv: [ same shape ]
 ```
 
-Two travel days, both from August, sent on a day with no travel. It also fired on
-16 Sep (+26%) and 23 Aug (+23%). Three gaps: `extractTopPattern` in
-`smart-nudges/index.ts` applies no occurrence floor at all (the other pattern
-branch requires 3), nothing checks whether the event type is actually happening,
-and the copy is present tense.
+Existing keys (`event_to_hrv`, `event_to_rhr`, `sleep_to_prs`,
+`consecutive_load`, `performance_lift`, `event_to_cognition`) are written exactly
+as today, same names, values and format. `payload` is untouched.
 
-## Answers to your three questions
+### (b) Subtypes per category, and what stays category-level
 
-### (a) Files I will change
+Subtype counts in `_shared/events/event-subtypes.ts`:
+A 11, D 8, C 6, E 7, F 7, B 4, G 4, H 9 — all eight have subtypes.
 
-New, additive:
-- `supabase/functions/_shared/patterns/pattern-eligibility.ts` — the one shared
-  check (all five rules) plus the sentence builder.
-- `supabase/functions/_shared/patterns/pattern-eligibility.test.ts` — your test list.
+Treated as **category-level only**: **G Travel** (its four subtypes — flight,
+accommodation, travel day, transit — are all the same experience, as you said)
+and **H Daily Rhythm & Baseline** (baseline rhythm by definition). A, B, C, D, E
+and F are matched at subtype level with no category fallback.
 
-Edited, narrowly:
-- `supabase/functions/smart-nudges/index.ts` — the pattern-alert branch and the
-  pattern-citation helper call the shared check instead of their own logic.
-- `supabase/functions/generate-mastery-plan/index.ts` — the why-line clause that
-  cites a pattern calls the shared check.
-- `supabase/functions/compute-outer-readiness/index.ts` — the Brief's pattern
-  clause calls the shared check.
+### (c) The engine's look-back window — this needs your decision
 
-Read only, not modified: `_shared/events/resolve-event-category.ts`,
-`_shared/travel/travel-day.ts` and the trip-window module, `cause-effect-engine`
-(keeps writing exactly what it writes today), and everything Insights reads.
+`cause-effect-engine/index.ts`: `WINDOW_DAYS = 60`, and a caller may pass
+14–90 days maximum. So today the engine sees **60 days**, and quarterly subtypes
+(board meetings, conferences) can essentially never reach 3.
 
-### (b) How "negative" is decided per measure
+I would add a **separate 365-day pass used only for the new subtype keys**. The
+existing 60-day calculation stays exactly as it is, so every value Insights reads
+is unchanged. This means one extra calendar/wearable read per run, no schema
+change. Confirm and I will build it that way.
 
-Direction is judged against your own baseline using the existing polarity module
-`_shared/nudges/metric-polarity.ts`, which already encodes:
+### (d) Your patterns recalculated at subtype level (365 days, duplicates collapsed)
 
-- resting heart rate above baseline → harm; below → recovery, not harm
-- HRV lower → harm; higher → recovery
-- sleep worse → harm; better → recovery
-- heart-rate load higher → harm
+| Occurrences | Subtype | Reaches 3+ |
+|---|---|---|
+| 13 | E Deep Work & Strategy / community | yes |
+| 7 | D Interpersonal High-Stakes / executive 1:1 | yes |
+| 6 | H Daily Rhythm / social | yes (category-level H) |
+| 5 | H Daily Rhythm / wellness & self-care | yes (category-level H) |
+| 4 | A Board & Governance / board meeting | yes |
+| 4 | E Deep Work & Strategy / routine sync | yes |
+| 3 | E Deep Work & Strategy / learning | yes |
+| 3 | B Influence & Persuasion / fundraising | yes |
+| 2 | D / hiring interview | no |
+| 2 | G Travel (flight 2 + accommodation 1 + travel 1 = 4 category-level) | yes at category level |
+| 2 | H / holiday | — |
+| 1 each | E deep work, E product launch, F event, F attendance, C media, A board committee, B client presentation, H recreation | no |
 
-Only "harm" qualifies for a reminder. A deviation under 1% counts as neutral and
-is not sent. Positive and neutral patterns are silent.
+23 further calendar days did not resolve to any category and are counted in no
+pattern. Within the current 60-day window only the top three or four rows would
+qualify — which is exactly why (c) matters.
 
-### (c) How I check the pattern includes your latest occurrence
+Travel at category level has 4 occurrences, so under the new rules a travel
+pattern could qualify — but only on a travel day or the evening before, which
+22 Sep was not.
 
-Each finding carries `lastSeen` (the last date of that event type in the window
-the engine analysed). I resolve, through the existing resolver, the most recent
-past occurrence of the same event type on your deduplicated calendar. The pattern
-qualifies only when the finding's `lastSeen` is on or after that date — i.e. the
-engine has already seen your most recent one. If it is older, your latest
-occurrence is not in the evidence and the pattern is skipped. If either date is
-missing, the pattern is skipped quietly. No day limit anywhere.
+### Negative threshold, using the engine's own numbers
 
-## The shared check
+Not 1%. The engine's existing meaningful-pattern thresholds:
 
-`isPatternCitable(finding, todayContext)` returns `{ ok, reason }` and applies, in
-order:
+- percentage measures (resting heart rate, HRV, sleep, readiness):
+  `MIN_DELTA_PCT_EMERGING = 10%`, `MIN_DELTA_PCT_STRONG = 15%`
+- tier measures (cognition dimensions, 1–5 scale):
+  `MIN_TIER_DELTA_EMERGING = 0.5`, `MIN_TIER_DELTA_STRONG = 1.0`
 
-1. `n >= 3` occurrences.
-2. Includes your latest occurrence of that event type (per (c) above).
-3. Negative direction (per (b) above).
-4. That event type occurs today, or starts tomorrow — travel read from the travel
-   SSOT and trip windows, every other type from today's/tomorrow's resolved
-   calendar events.
-5. Cited only next to its own event type — the slot/brief/nudge anchor must
-   resolve to the same A–H type and subtype.
+Direction of harm comes from the existing polarity module
+`_shared/nudges/metric-polarity.ts`: resting heart rate or heart-rate load above
+your baseline is harm; HRV, sleep or recovery below baseline is harm; the opposite
+direction is recovery and is never sent as a reminder.
 
-When several qualify: strongest confidence, then most recent `lastSeen`, then
-largest absolute effect. Applies to all A–H types and subtypes, travel included.
-Every reason is written to the evaluator log, so a suppression is explainable.
+## The rules (one shared check)
 
-## How the message reads
+`_shared/patterns/pattern-eligibility.ts` — `isPatternCitable(finding, context)`
+returns `{ ok, reason }`, used by nudges, Plan and Brief so they cannot disagree:
+
+1. **Enough evidence** — `n >= 3` occurrences. Below 3, never used.
+2. **Real count** — once it qualifies, all of its occurrences are used and the
+   copy states the true number ("your last 5 board meetings"). Never rounded to 3.
+3. **Up to date** — the finding must include your most recent occurrence of that
+   event type, checked against the latest resolved past occurrence on your
+   deduplicated calendar. No day limit, no cadence table, no staleness ceiling.
+4. **Negative** — harm only, at the engine thresholds above.
+5. **Right time** — that event type is happening today, or starts tomorrow
+   (evening-before framing). Never on an unrelated day.
+6. **Right context** — cited only alongside its own event type, matched at
+   subtype level for A–F, category level for G Travel and H. No category
+   fallback: if the subtype has fewer than 3, nothing is said.
+
+Ties: strongest confidence, then most recent occurrence, then largest effect.
+Every rejection reason is logged.
+
+## Copy
 
 Past-tense evidence plus what is ahead, real stored numbers only:
 
-- "Travel tomorrow. Your last 3 travel days raised your resting heart rate by
+- "Travel tomorrow. Your last 4 travel days raised your resting heart rate by
   27%. Make tonight a recovery evening."
-- "Board meeting today. Your last 3 board days dropped your HRV by 20%."
-- "3 weeks of travel ahead. Your last 3 travel periods raised resting heart rate
+- "Board meeting today. Your last 4 board days dropped your HRV by 20%."
+- "3 weeks of travel ahead. Your last 4 travel periods raised resting heart rate
   by 27%."
 
-Generated inside the existing copy gate — length limits, forbidden words,
-qualified CTA verb — and never phrased as a fact about today.
+Inside the existing copy gate — length limits, forbidden words, qualified CTA
+verb — and never phrased as a fact about today.
 
-## What does not change
+## Files
 
-- Insights and its cards are untouched, including 2-occurrence "emerging"
-  findings; `cause-effect-engine` keeps storing exactly what it stores today. The
-  new rules apply only where a pattern is used in nudges, Plan or Brief.
-- No database change, no frontend change.
-- All other reminder rules unchanged: send windows, quiet hours, daily cap, 2h
-  spacing, silent-sync exclusion, week-ahead, light-day, JIT.
-- Plan day shapes, arcs, the readiness gate and every other why-line evidence
-  source are unchanged; only the pattern clause is gated.
-- Every new read is failure-tolerant: missing dates, event or travel data means
-  the pattern is skipped, never an error.
+New: `_shared/patterns/pattern-eligibility.ts` + its test.
+Edited: `cause-effect-engine/index.ts` (additive subtype pass and new
+`signal_summary` keys only), `smart-nudges/index.ts` (pattern-alert branch and
+pattern citation), `generate-mastery-plan/index.ts` (pattern clause in why-lines),
+`compute-outer-readiness/index.ts` (pattern clause in the Brief).
+Read-only, not modified: the event resolver, travel/trip modules, and everything
+Insights fetches or renders.
+
+## Insights: unchanged
+
+No UI change, no change to any field Insights reads, calculates or displays.
+`payload` and every existing `signal_summary` key keep the same names, values and
+format; the new subtype keys are additive and read only by nudges, Plan and Brief.
+Verification test: capture the Insights response for your account before and after
+and assert it is byte-identical. Nothing in this plan requires an Insights change
+— if that turns out to be false during the build I stop and tell you first.
 
 ## Tests
 
-- 2 occurrences rejected.
-- A finding that misses your latest occurrence rejected.
-- A positive pattern not sent.
-- Travel rejected 2 days before travel; accepted the evening before and on the day.
-- 3 boards spread over a year accepted before the next board.
-- Conference pattern rejected on a day with no conference.
-- Insights read path asserted unchanged.
-- Full backend suite green.
+- 2 occurrences rejected; 5 occurrences reported as 5, never as 3.
+- A finding missing your latest occurrence rejected.
+- A positive pattern not sent; a sub-threshold delta not sent.
+- Travel rejected 2 days before travel, accepted the evening before and on the day.
+- A board pattern from boards spread over a year accepted before the next board.
+- A conference pattern rejected on a day with no conference.
+- A media-facing pattern not used before any other Visibility & Comms event, and
+  no category fallback when a subtype has fewer than 3.
+- Insights response identical before and after.
+- Missing dates, event or travel data → skipped quietly, never an error.
 
 ## Live verification
 
-Dry run `smart-nudges` on your account for 22 Sep: confirm the travel reminder no
-longer qualifies and the logged reason names which rule stopped it. Then deploy
-one function at a time — `smart-nudges`, then `generate-mastery-plan`, then
+Dry run `smart-nudges` for 22 Sep on your account: the travel reminder no longer
+qualifies and the log names the rule that stopped it. Then deploy one at a time —
+`cause-effect-engine`, `smart-nudges`, `generate-mastery-plan`,
 `compute-outer-readiness` — confirming each live before the next.
