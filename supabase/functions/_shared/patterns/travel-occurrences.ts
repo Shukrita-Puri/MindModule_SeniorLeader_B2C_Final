@@ -33,8 +33,12 @@ export const TRIP_GAP_DAYS = 7;
  */
 export const MAX_TRIP_DAYS = 21;
 
-/** Earliest local hour a day's last reading may have and still count as covering the evening. */
-export const FULL_DAY_LAST_READING_HOUR = 18;
+/**
+ * Earliest local hour a day's last reading may have and still count as covering
+ * the evening. Late enough that a 18:25 departure is never vetoed by a reading
+ * taken on the way to the airport.
+ */
+export const FULL_DAY_LAST_READING_HOUR = 21;
 
 /** A covered day needs more than one reading, including that evening one. */
 export const FULL_DAY_MIN_READINGS = 2;
