@@ -18,6 +18,36 @@ means no *new* coach rows; existing rows keep being read exactly as today, and
 none of those readers requires fresh rows. The pattern eligibility gate,
 readiness/MRS scoring and signal pills do not touch these tables at all.
 
+## Pre-build confirmations
+
+**1. Streaming / tool-calling use.** `streamClaude`, `streamClaudeAsOpenAI` and
+`callClaudeWithTools` appear outside the shared helper in exactly one place —
+`self-mastery-coach` (`callClaudeWithTools` at :3145, `streamClaudeAsOpenAI` at
+:3271), a coach function disabled in Part 1. No Part 2 function imports or calls
+any of the three, so leaving them Anthropic-only is safe.
+
+**2. Coach table rows** (all real users; no test accounts present).
+
+- `coach_accountability_tracker`: **0 rows** — nothing pending anywhere.
+- `coach_tools_offered`: 14 rows, 4 users (joydeepcha75 6, itsmanojkdev 4,
+  shukrita 2, nanda.nitasha 2), all `status: pending`, but every `expires_at`
+  falls in early April 2026 — long expired.
+- `coach_pattern_observations`: 25 rows, 6 users (jamie 9, shukrita 6, udipta 3,
+  nanda.nitasha 3, joydeepcha 2, ksuhag 2), all `is_active: true`, last observed
+  late March / early April 2026.
+
+Where those open rows could surface, as the code stands today:
+- Smart Nudges reads active pattern observations with **no recency filter**, so
+  the April rows are already citable — unchanged by this work.
+- The Brief requires `last_observed_at` within 7 days, so none qualify.
+- JIT events reads pending `coach_tools_offered` with **no expiry filter**, so
+  the expired rows are already reachable — also unchanged.
+- Plan reads pending commitments only, and that table is empty.
+
+Disabling the writers changes none of this: no new rows appear, and every
+existing row keeps being read exactly as today.
+
+
 ## Part 1 — Coach features make no model calls (deployed first)
 
 - New env var `COACH_AI_ENABLED`, default `"false"`.
