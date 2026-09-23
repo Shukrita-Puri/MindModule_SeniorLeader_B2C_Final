@@ -337,6 +337,9 @@ export async function callClaudeWithTools(params: CallClaudeParams): Promise<{
   content: string | null;
   tool_calls: Array<{ function: { name: string; arguments: string } }> | null;
 }> {
+  if (resolveWritingProvider(params.fnName) === 'gemini') {
+    throw new Error('Tool calling is not supported in Gemini mode yet');
+  }
   const response = await callClaude(params);
 
   const textContent = response.content
