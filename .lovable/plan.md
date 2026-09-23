@@ -187,29 +187,142 @@ signal_summary.subtype_patterns_365: {
   generatedAt: "2026-09-23T…",
   windowDays: 365,
   items: [
+    // A–E and H: subtype level only
     {
-      matchLevel: "subtype" | "category",   // category → G and F
+      matchLevel: "subtype",
       categoryId: "A",
-      subtypeId: "gov.board_meeting",       // null when matchLevel = "category"
-      subcategory: "board_meeting",         // null when matchLevel = "category"
+      subtypeId: "gov.board_meeting",
+      subcategory: "board_meeting",
       label: "Board meeting",
       measure: "rhr" | "hrv" | "sleep" | "recovery",
-      n: 4,                                  // true total, never capped
-      deltaPct: 18.2,                        // signed, vs your own baseline
+      n: 4,                          // true total occurrences, never capped
+      deltaPct: 18.2,                // signed, vs your own baseline (rhr/hrv/sleep)
+      recoveryDays: null,            // used only when measure = "recovery"
       direction: "harm" | "recovery",
       confidence: "strong" | "emerging",
       lastSeen: "2026-09-02",
-      occurrences: [{ date: "2026-09-02", title: "OHS board meeting" }, …]  // ≤20
+      qualifies: true,               // 3+ occurrences, harm, above threshold
+      occurrences: [{ date: "2026-09-02", title: "OHS board meeting" }, …] // ≤20
+    },
+
+    // G and F: BOTH levels stored.
+    // (a) subtype entries — stored for future Insights use, never surfaced now
+    { matchLevel: "subtype", categoryId: "G", subtypeId: "trv.flight",
+      subcategory: "flight", label: "Flight / Travel", surfaced: false, … },
+
+    // (b) the category entry — the only one nudges, Plan and Brief read
+    {
+      matchLevel: "category",
+      categoryId: "G",
+      subtypeId: null,
+      subcategory: null,
+      label: "Travel",
+      measure: "rhr",
+      unit: "trip",                  // occurrences are trips, not days
+      n: 2,                          // number of separate trips
+      perDay:  { deltaPct: 12.4, n: 5 },   // avg change per travel day
+      perTrip: { deltaPct: 14.1, recoveryDays: 2, n: 2 }, // whole-trip effect
+      direction: "harm",
+      confidence: "emerging",
+      lastSeen: "2026-09-17",
+      qualifies: false,              // fewer than 3 trips
+      occurrences: [{ start: "2026-08-09", end: "2026-08-17", days: 3,
+                      titles: ["Flight to New York (BA 183)", …] }, …]
     }
   ]
 }
 ```
 
-G Travel and F sit in the same `items` array with `matchLevel: "category"` and
-null subtype fields, so the shared check can tell them apart without a second
-location. All existing keys (`event_to_rhr`, `event_to_hrv`, `sleep_to_prs`,
-`consecutive_load`, `performance_lift`, `event_to_cognition`) and `payload` are
-written exactly as today.
+F Conferences uses the same two-level shape with `unit: "day"`. All existing
+keys (`event_to_rhr`, `event_to_hrv`, `sleep_to_prs`, `consecutive_load`,
+`performance_lift`, `event_to_cognition`) and `payload` are written exactly as
+today.
+
+## 7. Only the pattern clause switches — every `signal_summary` read
+
+**generate-mastery-plan**
+
+| Read | Purpose | Verdict |
+|---|---|---|
+| line ~250 fallback snapshot fetch | passes the raw summary through to shared context | unchanged |
+| line ~4836/4854 main fetch | supplies the summary object to JIT selection | unchanged |
+| line ~6241 `event_to_hrv` → `forceArcCategoryIds` | decides which arcs are forced | **unchanged** (day-shape/arc logic) |
+| line ~8417 `patternSummary` for the why-line | quotes a pattern in copy | **switches** to `subtype_patterns_365` + shared check |
+
+**compute-outer-readiness**
+
+| Read | Purpose | Verdict |
+|---|---|---|
+| `performance_lift.hr_event_lift` (~7823) | prompt framing of positive lift | unchanged |
+| `event_to_rhr` (~7860) | quotes a pattern to the brief | **switches** |
+| `event_to_hrv` (~7878) | quotes a pattern to the brief | **switches** |
+| `event_to_cognition` (~7894) | quotes a pattern to the brief | **switches** |
+| `sleep_to_prs` (~7911) | sleep→score line, not event-typed | unchanged |
+| `consecutive_load` (~7919) | back-to-back load line, not event-typed | unchanged |
+| `performance_lift.category_lift` (~7928) | positive-events framing | unchanged |
+
+**smart-nudges**
+
+| Read | Purpose | Verdict |
+|---|---|---|
+| `hydratePatternStore` (~1461–1480) | builds the ctx object | unchanged; a new field is added alongside |
+| `event_to_hrv` bpm lookup (~1538) | pill/context numbers | unchanged |
+| `evaluatePatternAlert` top `event_to_hrv` (~4760) | the pattern nudge itself | **switches** |
+| `consecutive_load` (~4798) | consecutive-load nudge, not event-typed | unchanged |
+| `extractTopPattern` (~4838–4930) | the pattern nudge's text | **switches**; its `sleep_to_prs` / `consecutive_load` branches stay |
+
+Nothing else in these functions changes.
+
+## 8. Downstream readers — before and after
+
+| Reader | Receives today | After |
+|---|---|---|
+| `_shared/jit/select-jit.ts` | `ctx.signalSummary` = the raw row summary | identical raw object. JIT rules unchanged. |
+| `_shared/jit/tactical-signals.ts` | reads `event_to_hrv` / `event_to_rhr` off that object | identical — still the 60-day keys |
+| `_shared/jit/maturity-tier.ts` | same object, for tier weights | identical |
+| `_shared/jit/load-jit-context.ts` | fetches `signal_summary` itself | identical |
+| `_shared/brief/deterministic-brief.ts` | `event_to_hrv` + `consecutive_load` passed in | `consecutive_load` identical; its one `event_to_hrv` sentence **is** a pattern citation, so it is gated by the shared check and fed from the 365 keys — and stays silent when nothing qualifies |
+| `src/utils/rules/calendarEvents.ts` | `priority_tag_observation` relationship weights | identical, untouched |
+
+The added key is additive, so every one of these keeps receiving exactly what it
+receives today. If you would rather the deterministic brief's sentence stay on
+the old data, say so and I will leave it alone.
+
+## 9. Travel counted by trip — your real number
+
+Trips on record: **9–17 August** (3 travel days) and **17 September** (1 day) —
+so **2 completed trips**, plus 29 September ahead. Under the 3-trip rule,
+Travel does **not** qualify today, which is exactly why the 22 September
+reminder must be refused.
+
+Measured both ways inside the category entry: per travel day (average change vs
+your baseline across all travel days) and per trip (whole-trip change plus days
+to return within 5% of baseline after the trip ends). Same rules apply to both
+— 3+ trips, harm, above threshold — and a message may cite either with real
+numbers only.
+
+*Noted for a later run, not built now:* a post-trip observation sent after you
+return, computed from that trip's own readings against your baseline, with no
+3-trip requirement because it reports what happened rather than a pattern. It
+would run off the closed trip window, compare the trip days and the days after
+to your 14-day baseline, and send once within 48 hours of return.
+
+## 10. Recovery threshold
+
+The engine has no day-based harm threshold today — it only has a 7-day
+look-ahead for recovery, so the 10%/15% rules genuinely don't apply. **My
+proposal, not an existing rule:** recovery is measured as days until the measure
+returns within 5% of your own baseline; **2+ days counts as meaningful harm
+(emerging), 3+ days as strong**, and same-day or next-day return is not harm.
+Tell me if you want different numbers.
+
+## 11. Cap never drops a qualifying pattern
+
+The 20-occurrence and 80-character caps stay. The 12-per-measure limit applies
+**only to non-qualifying patterns**: everything with 3+ occurrences, harm and
+above threshold is always kept, however many there are, and the cap trims the
+remainder.
+
 
 ---
 
