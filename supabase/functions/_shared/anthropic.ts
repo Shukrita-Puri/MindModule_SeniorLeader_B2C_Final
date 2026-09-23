@@ -111,6 +111,11 @@ interface CallClaudeParams {
    * per-function provider override WRITING_PROVIDER_<FUNCTION_NAME>.
    */
   fnName?: string;
+  /**
+   * Optional fetch replacement, e.g. frozenAwareFetch bound to a function name.
+   * Used by the dormant-cluster call sites so their freeze gate stays in place.
+   */
+  fetchImpl?: (input: string, init: RequestInit) => Promise<Response>;
 }
 
 interface ClaudeResponse {
@@ -242,6 +247,7 @@ async function callGeminiAsClaude(params: CallClaudeParams): Promise<ClaudeRespo
     temperature: params.temperature,
     response_format: params.response_format,
     signal: params.signal,
+    fetchImpl: params.fetchImpl,
   });
 
   const stop_reason = finish_reason === 'length'
@@ -304,7 +310,8 @@ export async function callClaude(params: CallClaudeParams): Promise<ClaudeRespon
 
   if (params.signal) fetchOptions.signal = params.signal;
 
-  const response = await fetch(ANTHROPIC_API_URL, fetchOptions);
+  const doFetch = params.fetchImpl ?? ((u: string, i: RequestInit) => fetch(u, i));
+  const response = await doFetch(ANTHROPIC_API_URL, fetchOptions);
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -516,6 +523,7 @@ async function callGatewayRaw(params: {
   temperature?: number;
   response_format?: { type: string };
   signal?: AbortSignal;
+  fetchImpl?: (input: string, init: RequestInit) => Promise<Response>;
 }): Promise<{ text: string; finish_reason: string; model: string }> {
   const apiKey = Deno.env.get('LOVABLE_API_KEY');
   if (!apiKey) throw new Error('LOVABLE_API_KEY not configured');
@@ -576,7 +584,8 @@ async function callGatewayRaw(params: {
     hasApiKey: !!apiKey,
   });
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', fetchOptions);
+  const gatewayFetch = params.fetchImpl ?? ((u: string, i: RequestInit) => fetch(u, i));
+  const response = await gatewayFetch(LOVABLE_AI_URL, fetchOptions);
 
   if (!response.ok) {
     const errorText = await response.text();
