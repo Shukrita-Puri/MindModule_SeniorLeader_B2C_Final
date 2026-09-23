@@ -354,3 +354,115 @@ the previous version held ready, run once for your account, then confirm the nex
 scheduled all-user run is clean before smart-nudges, then generate-mastery-plan,
 then compute-outer-readiness — with the 22 Sep dry run naming the rule that stops
 the travel reminder.
+
+---
+
+# Stage 1 addendum — your latest eight points
+
+Recovery threshold accepted as stated (2+ days emerging, 3+ strong, same/next
+day not harm).
+
+## 12. Signal pills — confirmed, they never cite an event pattern
+
+Checked `_shared/signal-pills/derive-pills.ts`. The three pills are built only
+from wearable readings and check-in answers. A pill is marked "pattern" in just
+two cases — a 3-day resting-heart-rate trend and a sustained-deficit flag — both
+of which are your own wearable trend against your own baseline, not an event
+type. **No pill shows anything like "Travel +27%".** Pills stay on the 60-day
+data, untouched.
+
+## 13. JIT — what changes, what doesn't
+
+JIT has exactly one pattern-to-copy path, and one scoring path:
+
+- **Changes:** nothing inside JIT selection itself. The pattern text that
+  reaches copy is produced by the Plan (`patternSummary`, line ~8417) and the
+  Brief, and those two are the citations already switching to the 365 data
+  through the shared check.
+- **Unchanged:** `patternHit` in `_shared/jit/tactical-signals.ts` keeps reading
+  the 60-day `event_to_hrv` / `event_to_rhr` for its 0–35 score,
+  `maturity-tier.ts` keeps its tier weights, `select-jit.ts` keeps every
+  threshold, exclusion, horizon and crisis rule, and `patternSignal` stays on
+  each candidate for diagnostics. So scoring, ranking and timing are identical;
+  only the sentence a reader sees is gated.
+
+If you would rather JIT's *score* also moved onto the 365 data, that changes
+which cards get picked — I would not do it in this run.
+
+## 14. Brief and Plan — positive and negative
+
+Positive data **does** record occurrence counts: every `performance_lift` entry
+(`hr_event_lift`, `category_lift`, `subcategory_lift`, `sleep_to_peak`) carries
+its own `n`. So the 3-occurrence minimum can be applied to positive framing with
+no engine change — I just add the `n >= 3` filter where those lines are built.
+
+- Positive framing: unchanged source, plus `n >= 3`.
+- Negative framing: new, from the 365 data through the shared check.
+- Both: 3+ occurrences, includes your latest occurrence, quoted only alongside
+  their own event type, on the day or the day before.
+- When an event has both, the negative line comes first and the positive is added
+  only if the length limits allow.
+- Nudges stay negative-only.
+
+## 15. Cognition — confirmed
+
+This run: the Brief's `event_to_cognition` sentence stays on its current data and
+only gains the 3-occurrence minimum (it already filters `n >= 3`, so this is a
+confirmation, not a change). No engine work for cognition now.
+
+**Run 2 (written up, not built):** add cognition to the 365 pass using the
+engine's existing 0.5 / 1.0 tier thresholds, same safety measures — existing
+work saves first, new pass fails quietly with its own time limit, on/off switch,
+dry run against saved output, Insights untouched, engine deployed alone then the
+readers one at a time. Then move the cognition sentence onto the shared check.
+
+## 16. Trip history is carried forward — confirmed
+
+The 365 pass reads its own previous `subtype_patterns_365` result and merges the
+trips it already recorded with whatever the travel modules currently expose, so a
+trip found in September is still there in December even after the ±30-day window
+has moved on. Dedupe is by start date. No changes to the travel modules, no
+schema change.
+
+## 17. Upcoming events — awareness only, confirmed
+
+An upcoming event sets the "right time" rule and nothing else. It is never an
+occurrence. A day becomes a travel occurrence only after it happens and is
+confirmed on the day by distance from home over the existing 50 km threshold, a
+trip window, or a location record. Planned travel that didn't happen never
+counts. **Confirmed: the current count of 2 trips excludes 29 September.**
+
+## 18. 17 September — both, and why
+
+That day holds two different things:
+
+- the calendar event "The AI:ROI Conference", which resolves to **F Conferences
+  (attending)**, and
+- a recorded trip window for 17 Sep with evidence "offsite", which makes it a
+  **Travel** day too.
+
+So it counts once under F and once under G. That is correct rather than
+double-counting: they are separate patterns answering separate questions ("what
+do conference days cost me?" and "what does being away cost me?"), and no single
+message ever cites both for the same day.
+
+## 19. Title reading — logged, not fixed here
+
+"First Flight Innovation Forum" on 29 September is a forum hosted by First
+Flight, not a flight. The resolver is reading the word "flight" in the title.
+Noted as the next piece of work, not touched in this run. **Point 17 already
+stops it from becoming a travel occurrence**, because a travel occurrence
+requires same-day confirmation from distance, a trip window or a location record
+— a title alone can never create one.
+
+## 20. Notes for the later Insights run
+
+- `forceArcCategoryIds` in generate-mastery-plan (line ~6241) uses the 60-day
+  `event_to_hrv` with no occurrence minimum. Left exactly as is; to be revisited
+  with the Insights migration.
+- Moving Insights onto the 365 data means re-pointing
+  `performance-rhythm-insights` and its card fields, after which the 60-day pass
+  can be retired.
+- Title misreading (point 19).
+- Post-trip observation message (Stage 1, point 9).
+
