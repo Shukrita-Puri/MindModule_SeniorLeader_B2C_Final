@@ -108,13 +108,35 @@ toward no pattern.
 H.wellness_self_care 5, A.board_meeting 4, E.routine_sync 4, E.learning 3, and
 G Travel at category level (3). Not yet: B.fundraising 2, F 2, C.media 1.
 
-## 2. Travel recounted by distinct day
+## 2. Travel recounted by distinct day — including short-haul and day trips
 
-Your G days are 9, 15 and 17 August. The 9th holds both a flight and a hotel
-check-in — one day, not two. So: **3 travel days, inside 1 trip (9–17 Aug)**.
-Counting rule I will use: one travel occurrence per distinct local day, and
-consecutive days inside one trip window are each their own day but the trip is
-never double-counted through flight + hotel + transit on the same day.
+A travel day is **one distinct local day** with travel evidence from any of
+three sources, read from the existing travel modules (no new definition, no
+edits to them):
+
+1. a recorded trip window (`travel_state.meta.trips`, calendar- or
+   location-sourced),
+2. distance from home above the existing 50 km threshold on that day (this is
+   what makes London → Oxford a travel day, same timezone, no flight),
+3. travel-titled calendar evidence (flight, hotel, transit, offsite).
+
+Flight + hotel + transit on the same day is one day, never three. Consecutive
+days inside one trip each count as their own day, and the trip is never
+double-counted.
+
+What your stored data actually holds today:
+
+- Calendar travel evidence: 9, 15, 17 August (one trip, 9–17 Aug).
+- Recorded trip windows: 17 Sep (offsite) and 29 Sep (flight, upcoming). Note
+  these windows only cover a rolling ±30 days, so older ones are gone.
+- Location history: 138 position fixes across 25 days, starting 16 July, and
+  currently 0.05 km from home.
+
+So the honest count today is **5 distinct travel days** (9, 15, 17 Aug, 17 Sep,
+and 29 Sep ahead). Your 1 September Oxford day trip left no stored evidence —
+no calendar entry, no trip window, no position fix beyond home that day — so it
+cannot be counted retrospectively. From now on the distance rule records days
+like it automatically; I won't invent it backwards.
 
 ## 3. Sleep and recovery
 
