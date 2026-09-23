@@ -4666,6 +4666,13 @@ interface SharedContext {
   restingHRBaseline: number | null;
   /** Observed load behind / ahead of today — justifies recovery on quiet days. */
   loadContext: LoadContext | null;
+  /**
+   * Past-tense pattern sentence that passed the SHARED eligibility check
+   * (`_shared/patterns/pattern-eligibility.ts`) against the 365-day store.
+   * Null whenever nothing qualifies — the why-line then says nothing about
+   * patterns.
+   */
+  citablePatternSentence: string | null;
 }
 
 
@@ -4957,6 +4964,77 @@ async function buildSharedContext(
       loadErr?.message,
     );
   }
+
+  // ── Citable pattern for the why-line (365-day store + shared check) ──────
+  // A pattern may only be quoted when it has 3+ real occurrences, includes the
+  // leader's latest occurrence of that type, shows harm (or a positive pattern,
+  // which the Plan is allowed to cite), and that same event type is happening
+  // today or starting tomorrow. Failure-tolerant: null keeps today's copy.
+  try {
+    const store = readPatternStore(ctx.signalSummary);
+    if (store) {
+      const todayLocal = getLocalDateISO(req.timezoneOffset);
+      const tomorrowLocal = new Date(
+        Date.parse(todayLocal + "T00:00:00Z") + 86400000,
+      ).toISOString().slice(0, 10);
+      const fromIso = new Date(Date.parse(todayLocal + "T00:00:00Z") - 86400000)
+        .toISOString();
+      const toIso = new Date(Date.parse(tomorrowLocal + "T00:00:00Z") + 2 * 86400000)
+        .toISOString();
+      const { data: windowRows } = await supabaseClient
+        .from("calendar_events")
+        .select("title, start_time, end_time, is_all_day, event_category, event_subcategory, category_resolved_by, category_confidence")
+        .eq("user_id", req.userId)
+        .gte("start_time", fromIso)
+        .lte("start_time", toIso);
+
+      const todayKeyed: Array<{ categoryId: string | null; subcategory: string | null }> = [];
+      const tomorrowKeyed: typeof todayKeyed = [];
+      for (const row of ((windowRows ?? []) as any[])) {
+        const startMs = new Date(String(row?.start_time ?? "")).getTime();
+        if (!Number.isFinite(startMs)) continue;
+        const localDate = new Date(startMs - (req.timezoneOffset ?? 0) * 60000)
+          .toISOString().slice(0, 10);
+        let keyed: { categoryId: string | null; subcategory: string | null };
+        try {
+          const r = resolveEvent(row);
+          keyed = { categoryId: r.categoryId, subcategory: r.subcategory };
+        } catch (_e) {
+          continue;
+        }
+        if (localDate === todayLocal) todayKeyed.push(keyed);
+        else if (localDate === tomorrowLocal) tomorrowKeyed.push(keyed);
+      }
+      // Travel awareness comes from the travel SSOT, never from a title.
+      if (ctx.travelSignal?.travelDay) {
+        todayKeyed.push({ categoryId: "G", subcategory: null });
+      }
+
+      const picked = pickCitablePattern(
+        store,
+        buildPatternContext(todayKeyed, tomorrowKeyed, { allowPositive: true }),
+      );
+      ctx.citablePatternSentence = composePatternSentence(picked.chosen);
+      console.info("[generate-mastery-plan][pattern-gate]", {
+        chosen: picked.chosen
+          ? {
+            key: patternKey(picked.chosen.pattern),
+            measure: picked.chosen.pattern.measure,
+            n: picked.chosen.pattern.n,
+            timing: picked.chosen.timing,
+          }
+          : null,
+        rejections: picked.rejections.slice(0, 8),
+      });
+    }
+  } catch (patternErr: any) {
+    console.warn(
+      "[generate-mastery-plan] pattern gate skipped:",
+      patternErr?.message,
+    );
+  }
+
+
 
 
   // ═══ PARALLEL BATCH: All server-side data fetching consolidated ═══
