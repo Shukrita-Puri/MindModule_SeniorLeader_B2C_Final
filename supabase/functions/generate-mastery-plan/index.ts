@@ -8498,15 +8498,11 @@ async function applyV51Enrichment(
       if (category) {
         const role = phase === "post" ? "PREVENT" : "PREPARE";
         const w = req.wearableContext;
-        const corr = hrvCorrelations?.eventToHrv ||
-          hrvCorrelations?.hrvEventCorrelation || null;
-        const patternSummary =
-          corr && corr.eventType && typeof corr.avgHrvDelta === "number" &&
-            corr.occurrences >= 3
-            ? `HRV ${corr.avgHrvDelta > 0 ? "rises" : "drops"} ~${
-              Math.abs(Math.round(corr.avgHrvDelta))
-            }% around ${corr.eventType} (n=${corr.occurrences})`
-            : null;
+        // Pattern citation comes ONLY from the shared eligibility check against
+        // the 365-day store (3+ real occurrences, includes the latest one,
+        // above threshold, and only alongside its own event type today or
+        // tomorrow). Null means the line says nothing about patterns.
+        const patternSummary = shared.citablePatternSentence ?? null;
         // Shared state band — read directly off the same brief snapshot that
         // drives the MRS dial. NEVER re-banded; falls through to null when
         // the snapshot is missing.
