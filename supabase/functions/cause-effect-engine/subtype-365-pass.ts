@@ -137,7 +137,8 @@ export async function runSubtypePatterns365Pass(
         .limit(5000),
       supabase.from("profiles")
         .select("home_lat, home_lng, home_country")
-        .eq("user_id", userId)
+        // profiles is keyed by `id` (the Auth0 subject), not `user_id`.
+        .eq("id", userId)
         .maybeSingle(),
       supabase.from("causality_findings")
         .select("signal_summary")
