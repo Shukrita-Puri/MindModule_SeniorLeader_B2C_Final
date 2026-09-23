@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { callClaude, CLAUDE_MODELS } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -95,26 +96,18 @@ Return ONLY a JSON object:
   `.trim();
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-5-haiku-latest',
-        system: 'You are a precise state prediction system. Return only valid JSON.',
-          messages: [
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 100
-      })
+    const data = await callClaude({
+      fnName: 'infer-current-state',
+      model: CLAUDE_MODELS.HAIKU,
+      system: 'You are a precise state prediction system. Return only valid JSON.',
+      messages: [
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 100
     });
 
-    const data = await response.json();
-    const content = data.content?.[0]?.text || '';
+    const content = (data.content?.[0] as { text?: string } | undefined)?.text || '';
     const parsed = JSON.parse(content.replace(/```json|```/g, '').trim());
 
     return {

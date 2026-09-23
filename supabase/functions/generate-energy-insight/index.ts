@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
+import { callClaude, CLAUDE_MODELS, resolveWritingProvider } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,10 +20,17 @@ serve(async (req) => {
 
   try {
     const context = await req.json(); // Full UserContext object
-    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error('ANTHROPIC_API_KEY not configured');
+    // Gate on the ACTIVE provider's key only.
+    const provider = resolveWritingProvider('generate-energy-insight');
+    const activeKey = provider === 'gemini'
+      ? Deno.env.get('LOVABLE_API_KEY')
+      : Deno.env.get('ANTHROPIC_API_KEY');
+    if (!activeKey) {
+      throw new Error(
+        provider === 'gemini'
+          ? 'LOVABLE_API_KEY not configured'
+          : 'ANTHROPIC_API_KEY not configured',
+      );
     }
 
     // Build calendar context conditionally
@@ -84,29 +92,16 @@ Examples:
 
 Generate unified insight with recommendation:`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 100,
-        temperature: 0.7,
-      }),
+    const data = await callClaude({
+      fnName: 'generate-energy-insight',
+      model: CLAUDE_MODELS.HAIKU,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 100,
+      temperature: 0.7,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway Error:', response.status, errorText);
-      throw new Error(`AI Gateway failed: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const insight = data.content?.[0]?.text?.trim() || "Focus on your immediate energy state";
+    const insight = (data.content?.[0] as { text?: string } | undefined)?.text?.trim()
+      || "Focus on your immediate energy state";
 
     return new Response(
       JSON.stringify({ insight }),
