@@ -1,12 +1,58 @@
 /**
- * Shared Anthropic Claude API helper
- * 
- * Centralizes all Claude API calls so each edge function just imports callClaude() or streamClaude().
+ * Shared AI writing helper (Anthropic Claude + Lovable AI Gateway / Gemini)
+ *
+ * Centralizes all writing/extraction calls so each edge function just imports
+ * callClaude()/callClaudeText()/callAIText().
  * Handles: system prompt extraction, required max_tokens, response parsing, tool calling.
+ *
+ * PROVIDER SWITCH (2026-09-23)
+ * ---------------------------
+ * `WRITING_PROVIDER` selects the active provider: "gemini" (default) or
+ * "anthropic". A per-function override is checked first:
+ * `WRITING_PROVIDER_<FUNCTION_NAME>` (upper snake case), because env vars are
+ * project-wide. Pass `fnName` in the call params to opt into the override.
+ *
+ * `WRITING_MODEL` sets the gateway model, default google/gemini-3.1-flash-lite.
+ *
+ * Every Anthropic code path below is intact and re-enabled by flipping
+ * WRITING_PROVIDER back to "anthropic". Only the text paths (callClaude without
+ * tools, callClaudeText, callAIText) have a Gemini branch; streaming and
+ * tool-calling stay Anthropic-only for now and throw a clear error in Gemini
+ * mode.
  */
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
+const LOVABLE_AI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+
+export const DEFAULT_WRITING_MODEL = 'google/gemini-3.1-flash-lite';
+
+export type WritingProvider = 'gemini' | 'anthropic';
+
+/** The gateway model used whenever the active provider is Gemini. */
+export function writingModel(): string {
+  return (Deno.env.get('WRITING_MODEL') || '').trim() || DEFAULT_WRITING_MODEL;
+}
+
+/**
+ * Active provider. `WRITING_PROVIDER_<FUNCTION_NAME>` wins over
+ * `WRITING_PROVIDER`; default is Gemini.
+ */
+export function resolveWritingProvider(fnName?: string): WritingProvider {
+  const normalize = (v: string | undefined): WritingProvider | null => {
+    const s = (v || '').trim().toLowerCase();
+    if (s === 'anthropic' || s === 'claude') return 'anthropic';
+    if (s === 'gemini' || s === 'lovable') return 'gemini';
+    return null;
+  };
+
+  if (fnName) {
+    const envName = `WRITING_PROVIDER_${fnName.replace(/[^A-Za-z0-9]+/g, '_').toUpperCase()}`;
+    const perFn = normalize(Deno.env.get(envName));
+    if (perFn) return perFn;
+  }
+  return normalize(Deno.env.get('WRITING_PROVIDER')) ?? 'gemini';
+}
 
 // Model mapping for easy reference
 export const CLAUDE_MODELS = {
@@ -15,6 +61,7 @@ export const CLAUDE_MODELS = {
   // Claude tier this app may use. The former `SONNET` alias was removed so no
   // call site can request a Sonnet-priced model — the Anthropic bill showed
   // Sonnet usage even though the alias already pointed at Haiku.
+  // NOTE: ignored while WRITING_PROVIDER=gemini (WRITING_MODEL applies instead).
   HAIKU: 'claude-haiku-4-5-20251001',
 } as const;
 
