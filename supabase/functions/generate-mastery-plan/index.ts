@@ -5020,7 +5020,13 @@ async function buildSharedContext(
 
       const picked = pickCitablePattern(
         store,
-        buildPatternContext(todayKeyed, tomorrowKeyed, { allowPositive: true }),
+        buildPatternContext(todayKeyed, tomorrowKeyed, {
+          allowPositive: true,
+          latestOccurrenceByKey: await loadLatestOccurrenceKeys(
+            supabaseClient as unknown as { from: (t: string) => any },
+            req.userId,
+          ),
+        }),
       );
       ctx.citablePatternSentence = composePatternSentence(picked.chosen);
       console.info("[generate-mastery-plan][pattern-gate]", {

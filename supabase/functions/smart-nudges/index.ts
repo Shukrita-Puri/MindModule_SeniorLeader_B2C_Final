@@ -4897,8 +4897,13 @@ async function selectCitablePatternForNudge(
       todayKeyed.push({ categoryId: "G", subcategory: null });
     }
 
+    const latestOccurrenceByKey = await loadLatestOccurrenceKeys(
+      supabase as unknown as { from: (t: string) => any },
+      ctx.userId,
+    );
     const context = buildPatternContext(todayKeyed, tomorrowKeyed, {
       allowPositive: false,
+      latestOccurrenceByKey,
     });
     const picked = pickCitablePattern(store, context);
     console.log("[smart-nudges][pattern-gate]", JSON.stringify({

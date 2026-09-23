@@ -7892,6 +7892,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   patternStore,
                   buildPatternContext(todayKeyed, tomorrowKeyed, {
                     allowPositive: true,
+                    latestOccurrenceByKey: briefLatestOccurrenceByKey,
                   }),
                 );
                 const sentence = composePatternSentence(picked.chosen);
