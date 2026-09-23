@@ -106,6 +106,11 @@ interface CallClaudeParams {
   tool_choice?: { type: string; function?: { name: string } };
   signal?: AbortSignal;
   response_format?: { type: string };
+  /**
+   * Calling function's name, e.g. "generate-energy-insight". Enables the
+   * per-function provider override WRITING_PROVIDER_<FUNCTION_NAME>.
+   */
+  fnName?: string;
 }
 
 interface ClaudeResponse {
