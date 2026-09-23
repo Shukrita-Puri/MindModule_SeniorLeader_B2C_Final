@@ -1447,6 +1447,10 @@ interface QualifiedNudge {
   // pattern was subcategory-anchored. Null when unknown. Telemetry-only:
   // notification body/title copy is not mutated by this value.
   planLedgerHrDeltaBpm?: number | null;
+  // Named-context tokens this nudge supplies itself (e.g. the A–H event-type
+  // label quoted by a 365-day pattern sentence). Merged into v8Ctx so the
+  // post-CTA copy recheck sees the real context the body names.
+  namedContextTitles?: string[];
 }
 
 // ── v7 helpers: pattern store reader + event classifier ────────────────
@@ -4777,6 +4781,17 @@ async function evaluatePatternAlert(
           variantId: "FB-PATTERN",
         },
         deepLinkRoute: "/insights/performance-causality",
+        namedContextTitles: [
+          citable.chosen.pattern.label ?? citable.chosen.pattern.categoryId,
+          ...(citable.chosen.pattern.occurrences ?? [])
+            .flatMap((o: Record<string, unknown>) =>
+              typeof o.title === "string"
+                ? [o.title]
+                : Array.isArray(o.titles)
+                ? (o.titles as string[])
+                : []
+            ),
+        ].filter(Boolean),
         priority: conf === "strong" ? 3 : 2,
         anchorKind: "state",
         slot: "morning",
@@ -6800,7 +6815,13 @@ serve(async (req) => {
             // V8 - capture per-user named-context tokens so the post-CTA
             // recheck can satisfy requiresNamedContextToken() for AI bodies
             // anchored on event titles or the morning check-in word.
-            v8Ctx: buildV8CtxForCheck(ctx),
+            v8Ctx: {
+              ...buildV8CtxForCheck(ctx),
+              eventTitles: [
+                ...buildV8CtxForCheck(ctx).eventTitles,
+                ...(bestNudge.namedContextTitles ?? []),
+              ],
+            },
             subtitle,
             headlineVariant,
             ctaBucket,
