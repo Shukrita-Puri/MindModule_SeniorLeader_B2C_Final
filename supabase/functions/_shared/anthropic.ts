@@ -601,7 +601,28 @@ async function callGatewayRaw(params: {
   }
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
+  return {
+    text: data.choices?.[0]?.message?.content || '',
+    finish_reason: data.choices?.[0]?.finish_reason || 'stop',
+    model: data.model || String(body.model),
+  };
+}
+
+/**
+ * Call Lovable AI Gateway (OpenAI-compatible) and return just the text.
+ * Default model is WRITING_MODEL's default (google/gemini-3.1-flash-lite).
+ */
+export async function callLovableAIText(params: {
+  system?: string;
+  messages: Array<{ role: string; content: string }>;
+  model?: string;
+  max_tokens?: number;
+  temperature?: number;
+  response_format?: { type: string };
+  signal?: AbortSignal;
+}): Promise<string> {
+  const { text } = await callGatewayRaw(params);
+  return text;
 }
 
 /**
