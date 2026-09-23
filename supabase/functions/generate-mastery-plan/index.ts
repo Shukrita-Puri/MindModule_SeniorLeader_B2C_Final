@@ -52,6 +52,13 @@ import {
 } from "../_shared/events/event-categories.ts";
 // A–H resolution via the single canonical entry point.
 import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
+import {
+  buildPatternContext,
+  composePatternSentence,
+  patternKey,
+  pickCitablePattern,
+  readPatternStore,
+} from "../_shared/patterns/pattern-eligibility.ts";
 import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import {
   CATEGORY_MAX_SLOTS,
@@ -4825,6 +4832,7 @@ async function buildSharedContext(
     strategicContext: null,
     restingHRBaseline: null,
     loadContext: null,
+    citablePatternSentence: null,
   };
 
   // ── Travel SSOT (shared with Brief + Smart Nudges) ─────────────────────
