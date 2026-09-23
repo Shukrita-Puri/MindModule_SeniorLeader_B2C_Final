@@ -9,10 +9,14 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+import { coachDisabledResponse } from "../_shared/coach-flag.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const coachOff = coachDisabledResponse(corsHeaders, "dialogue-session-manage");
+  if (coachOff) return coachOff;
 
   try {
     if (req.method !== "POST") {

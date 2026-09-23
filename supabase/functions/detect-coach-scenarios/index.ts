@@ -44,10 +44,14 @@ const SCENARIO_EVENT_MAPPING: Record<string, string[]> = {
   transition: ['first_day', 'last_day', 'announcement_meeting', 'handover_meeting'],
 };
 
+import { coachDisabledResponse } from "../_shared/coach-flag.ts";
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const coachOff = coachDisabledResponse(corsHeaders, "detect-coach-scenarios");
+  if (coachOff) return coachOff;
 
   try {
     const verifiedUserId = await verifyAuth0JWT(req);
