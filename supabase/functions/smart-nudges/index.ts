@@ -4784,13 +4784,12 @@ async function evaluatePatternAlert(
         namedContextTitles: [
           citable.chosen.pattern.label ?? citable.chosen.pattern.categoryId,
           ...(citable.chosen.pattern.occurrences ?? [])
-            .flatMap((o: Record<string, unknown>) =>
-              typeof o.title === "string"
-                ? [o.title]
-                : Array.isArray(o.titles)
-                ? (o.titles as string[])
-                : []
-            ),
+            .flatMap((occ) => {
+              const o = occ as unknown as Record<string, unknown>;
+              if (typeof o.title === "string") return [o.title];
+              if (Array.isArray(o.titles)) return o.titles as string[];
+              return [] as string[];
+            }),
         ].filter(Boolean),
         priority: conf === "strong" ? 3 : 2,
         anchorKind: "state",
