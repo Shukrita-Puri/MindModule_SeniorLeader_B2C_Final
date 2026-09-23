@@ -225,12 +225,12 @@ signal_summary.subtype_patterns_365: {
       label: "Travel",
       measure: "rhr",
       unit: "trip",                  // occurrences are trips, not days
-      n: 1,                          // number of separate confirmed trips
-      perDay:  { deltaPct: 12.4, n: 5 },   // avg change per travel day
-      perTrip: { deltaPct: 14.1, recoveryDays: 2, n: 2 }, // whole-trip effect
+      n: 1,                          // confirmed trips — yours today
+      perDay:  { deltaPct: 12.4, n: 3 },   // avg change per travel day (3 days)
+      perTrip: { deltaPct: 14.1, recoveryDays: 2, n: 1 }, // whole-trip effect
       direction: "harm",
       confidence: "emerging",
-      lastSeen: "2026-09-17",
+      lastSeen: "2026-08-17",
       qualifies: false,              // fewer than 3 trips
       occurrences: [{ start: "2026-08-09", end: "2026-08-17", days: 3,
                       titles: ["Flight to New York (BA 183)", …] }, …]
