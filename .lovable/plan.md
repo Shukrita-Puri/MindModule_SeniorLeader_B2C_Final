@@ -1,63 +1,69 @@
-# Retire Claude everywhere — one cheap Gemini Flash writing model
+# Switch writing to Gemini Flash (Claude kept, switchable) + coach AI off
 
-Every AI writing/extraction call moves to `google/gemini-3.1-flash-lite` on the
-Lovable AI Gateway (already the model used by the Plan why-lines and Smart
-Nudges). Anthropic is removed as a provider. No prompts, wording rules,
-validators, schemas, tables or screens change — only which model writes the text.
+Two independent changes, both reversible by an env var, with no prompt, wording
+rule, validator, schema, table or screen changes.
 
-## Where Claude is used today
+## Part 1 — Coach features make no model calls at all
 
-Already Gemini-only (no change): Smart Nudges copy, Plan why-lines, COS profile.
+The coach isn't live, so its functions must not call any provider.
 
-Still calling Anthropic:
+- New env var `COACH_AI_ENABLED`, default `"false"`.
+- At the very top of each coach function — before any provider call and before
+  any write — return `200 { skipped: "coach_disabled" }` when the flag isn't
+  `"true"`: `self-mastery-coach`, `generate-coach-summary`,
+  `extract-coach-insights`, `detect-coach-scenarios`,
+  `analyze-probing-effectiveness`, `dialogue-session-manage`,
+  `process-orphaned-sessions`, `extract-tool-commitments`,
+  `resolve-session-commitments`, `detect-recurring-patterns`,
+  `infer-current-state`.
+- Existing code stays intact behind the flag; these functions are **not**
+  migrated to Gemini in this run.
+- Scheduled trigger found: the `process-orphaned-sessions` cron job runs every
+  10 minutes. The flag makes it a cheap no-op; the job is also unscheduled so
+  nothing is invoked automatically. No other coach function is on a schedule or
+  a database trigger. `dialogue-session-manage` is invoked from app code only.
+- Frontend untouched; a call that reaches a coach function returns a clean 200,
+  never a visible error.
 
-| Function | Calls | What it writes |
-|---|---|---|
-| compute-outer-readiness | 1 | Brief copy fallback provider |
-| self-mastery-coach | 2 | Coach chat (streaming) + tool call |
-| insights-semantic-analysis | 3 | Insight text, observations, summary |
-| generate-coach-summary | 2 | Session summary + surfacing line |
-| generate-dashboard-insight | 1 | Dashboard trend line |
-| generate-energy-insight | 1 | Energy insight line |
-| generate-onboarding-insight / generate-debrief-insights / state-patterns-insights | via shared helper | Insight lines |
-| extract-coach-insights, extract-tool-commitments, resolve-session-commitments, detect-recurring-patterns, detect-coach-scenarios, analyze-probing-effectiveness, infer-current-state, dialogue-session-manage, process-orphaned-sessions | 1 each | Structured extraction (JSON) |
+## Part 2 — Writing routes to Gemini Flash by default, Anthropic kept
 
-## Approach
+`_shared/anthropic.ts` becomes provider-switchable:
 
-1. **Turn the shared Claude helper into a Gemini-backed shim.**
-   `_shared/anthropic.ts` keeps its exported names and signatures
-   (`callClaudeText`, `callClaude`, `callClaudeWithTools`, `callAIText`,
-   `streamClaude`, `streamClaudeAsOpenAI`, `CLAUDE_MODELS`) but every one routes
-   to `https://ai.gateway.lovable.dev/v1/chat/completions` with
-   `google/gemini-3.1-flash-lite`, reusing the existing `callLovableAIText`
-   request/error handling in that file. System prompts collapse to a `system`
-   message; Anthropic tool blocks map to OpenAI-style function tools;
-   `streamClaudeAsOpenAI` passes the gateway's OpenAI SSE through unchanged
-   (it was already converting *to* that shape). Cache-control blocks are
-   dropped — not applicable, and they only affected billing.
-   This makes every call site above correct without touching it.
+- `WRITING_PROVIDER`: `"gemini"` (default) | `"anthropic"`.
+- `WRITING_MODEL`: default `google/gemini-3.1-flash-lite`.
+- Every existing export keeps its current Anthropic implementation
+  (`callClaudeText`, `callClaude`, `callClaudeWithTools`, `callAIText`,
+  `streamClaude`, `streamClaudeAsOpenAI`, `CLAUDE_MODELS`) and gains a Gemini
+  branch selected by the env var.
+- The Gemini branch returns the **same shapes callers already read**:
+  `content[0].text`, `tool_use` blocks, and `stop_reason` mapped from
+  `finish_reason` (`stop`→`end_turn`, `tool_calls`→`tool_use`,
+  `length`→`max_tokens`).
+- Message conversion: system prompt → `system` message; `tool_use` /
+  `tool_result` blocks → `tool_calls` plus `role: "tool"` messages with matching
+  ids; `cache_control` dropped; a trailing assistant prefill (e.g. `"{"`) is
+  folded into the prompt instead of sent as a message.
+- Streaming: in Gemini mode the SSE the client receives keeps today's shape —
+  text deltas, tool-call deltas, `[DONE]`.
+- Key gates test the **active** provider only (`LOVABLE_API_KEY` in Gemini mode,
+  `ANTHROPIC_API_KEY` in Anthropic mode), so an empty Claude balance can no
+  longer silently disable a feature. On failure, callers keep their existing
+  deterministic/static fallbacks.
 
-2. **Rewrite the raw `fetch('https://api.anthropic.com/v1/messages')` sites**
-   (the 13 extraction/insight functions) to call the shim instead, keeping each
-   prompt string, temperature, token cap, JSON-cleanup and parsing exactly as
-   written. `frozenAwareFetch` stays in place as the wrapper so the LLM freeze
-   switch keeps working.
+### Raw Anthropic fetch sites
 
-3. **Remove the Anthropic key gates.** Any `if (!ANTHROPIC_API_KEY) throw` or
-   `if (ANTHROPIC_API_KEY && …)` branch becomes the equivalent
-   `LOVABLE_API_KEY` check, so a missing Anthropic secret can no longer
-   suppress a feature (this is what silently disabled the Brief fallback while
-   the Claude balance was empty). The two-provider fallback in `callAIText`
-   collapses to a single provider; on failure callers keep their existing
-   deterministic/static fallbacks.
+The functions that call `https://api.anthropic.com/v1/messages` directly and are
+**not** coach-only route through the shared helper so they obey
+`WRITING_PROVIDER`, keeping each prompt, temperature, token cap, JSON cleanup and
+parsing exactly as written, with `frozenAwareFetch` still wrapping the call:
+`compute-outer-readiness` (Brief fallback), `insights-semantic-analysis`,
+`generate-coach-summary`-adjacent insight writers
+(`generate-dashboard-insight`, `generate-energy-insight`,
+`generate-onboarding-insight`, `generate-debrief-insights`,
+`state-patterns-insights`). Coach-only functions are left as they are, disabled
+by Part 1.
 
-4. **Model constant in one place.** `CLAUDE_MODELS.HAIKU` becomes an alias for
-   the single Gemini model, with a `WRITING_MODEL` export and an optional env
-   override, so a future model change is one line. The file gets renamed in
-   comments only — no import paths change this run.
-
-5. **`ANTHROPIC_API_KEY` stays configured but unused** so nothing 500s
-   mid-deploy; removal can follow once all functions are live and verified.
+`ANTHROPIC_API_KEY` stays configured. No Anthropic code is deleted.
 
 ## Not changing
 
@@ -67,15 +73,17 @@ RLS, frontend, iOS/Android, notification timing, subscriptions.
 
 ## Verification
 
-- `deno check` on every edited function; full backend test suite at its current
+- `deno check` on every edited function; backend test suite at its current
   baseline.
-- Deploy in this order, confirming each live before the next: shared helper +
-  `compute-outer-readiness` → `self-mastery-coach` →
-  `insights-semantic-analysis`, `generate-coach-summary`,
-  `generate-dashboard-insight`, `generate-energy-insight` → the extraction
-  functions.
-- Live checks: regenerate a Brief and confirm the AI fallback path now returns
-  text instead of a credit error; run one coach session end to end (streaming
-  reply + tool call + post-session commitment resolution); confirm one
-  extraction function writes the same shaped rows as before.
-- Confirm the logs no longer contain `api.anthropic.com` or "credit balance".
+- Redeploy in order (shared code only takes effect on redeploy), confirming each
+  live before the next: `compute-outer-readiness` → the insight writers → the
+  coach functions (flag off).
+- Coach: invoke each one once with the flag off and confirm the no-op response,
+  nothing written, and zero calls to `api.anthropic.com` or
+  `ai.gateway.lovable.dev` in its logs; confirm no scheduled job triggers them.
+- Writing: regenerate a Brief and confirm the AI fallback path returns text
+  instead of a credit error; run past inputs through each live insight function
+  and confirm the same JSON fields.
+- Confirm logs show no `api.anthropic.com` calls while `WRITING_PROVIDER=gemini`.
+- Test rollback once: set `WRITING_PROVIDER=anthropic` on one function, confirm
+  it still works, set it back.
