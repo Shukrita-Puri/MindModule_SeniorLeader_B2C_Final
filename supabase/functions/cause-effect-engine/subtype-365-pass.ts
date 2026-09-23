@@ -144,7 +144,7 @@ export async function runSubtypePatterns365Pass(
         .order("captured_at", { ascending: true })
         .limit(5000),
       supabase.from("profiles")
-        .select("home_lat, home_lng")
+        .select("home_lat, home_lng, home_timezone")
         // profiles is keyed by `id` (the Auth0 subject), not `user_id`.
         .eq("id", userId)
         .maybeSingle(),
@@ -162,20 +162,60 @@ export async function runSubtypePatterns365Pass(
     const profile = profRes?.data ?? null;
 
     // Per-day greatest distance from the home anchor.
+    // Per-day greatest distance from home, plus how far through the day the
+    // readings run: readings that stop before the evening can never veto a
+    // flight, hotel or transit entry.
     const locationDays: LocationDay[] = [];
     if (profile?.home_lat != null && profile?.home_lng != null) {
-      const byDay = new Map<string, number>();
+      const tz = typeof profile.home_timezone === "string" && profile.home_timezone
+        ? profile.home_timezone
+        : "UTC";
+      const localParts = (iso: string): { date: string; hour: number } => {
+        try {
+          const fmt = new Intl.DateTimeFormat("en-CA", {
+            timeZone: tz,
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            hour12: false,
+          });
+          const parts = fmt.formatToParts(new Date(iso));
+          const get = (t: string) => parts.find((x) => x.type === t)?.value ?? "";
+          const hour = Number(get("hour"));
+          return {
+            date: `${get("year")}-${get("month")}-${get("day")}`,
+            hour: Number.isFinite(hour) ? hour % 24 : 0,
+          };
+        } catch {
+          return { date: isoDate(Date.parse(iso)), hour: new Date(iso).getUTCHours() };
+        }
+      };
+      const byDay = new Map<
+        string,
+        { maxKm: number; lastHour: number; count: number }
+      >();
       for (const p of pings) {
         if (typeof p.lat !== "number" || typeof p.lng !== "number") continue;
-        const d = isoDate(Date.parse(p.captured_at));
+        const { date: d, hour } = localParts(p.captured_at);
         const km = haversineKm(
           { lat: profile.home_lat, lng: profile.home_lng },
           { lat: p.lat, lng: p.lng },
         );
-        byDay.set(d, Math.max(byDay.get(d) ?? 0, km));
+        const cur = byDay.get(d) ?? { maxKm: 0, lastHour: -1, count: 0 };
+        byDay.set(d, {
+          maxKm: Math.max(cur.maxKm, km),
+          lastHour: Math.max(cur.lastHour, hour),
+          count: cur.count + 1,
+        });
       }
-      for (const [date, maxDistanceKm] of byDay) {
-        locationDays.push({ date, maxDistanceKm });
+      for (const [date, agg] of byDay) {
+        locationDays.push({
+          date,
+          maxDistanceKm: agg.maxKm,
+          lastReadingHour: agg.lastHour >= 0 ? agg.lastHour : null,
+          readingCount: agg.count,
+        });
       }
     }
 
@@ -192,6 +232,8 @@ export async function runSubtypePatterns365Pass(
               source: d.source ?? null,
               reason: d.reason ?? "carried-forward",
               titles: Array.isArray(d.titles) ? d.titles : [],
+              kinds: Array.isArray(d.kinds) ? d.kinds : [],
+              filled: d.filled === true,
             });
           }
         }
