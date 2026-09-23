@@ -167,12 +167,14 @@ Deno.test("title that looks like a flight, location at home: not travel", () => 
   assertEquals(v.travel, false);
 });
 
-Deno.test("invite 200km away, attended online with location at home: not travel", () => {
-  const v = confirmTravelDay("2026-09-10", { date: "2026-09-10", maxDistanceKm: 2 }, [
-    { date: "2026-09-10", kind: "invite_address", title: "Summit, Manchester" },
-  ]);
+Deno.test("invite 200km away, attended online with location at home all day: not travel", () => {
+  const v = confirmTravelDay(
+    "2026-09-10",
+    { date: "2026-09-10", maxDistanceKm: 2, lastReadingHour: 22, readingCount: 6 },
+    [{ date: "2026-09-10", kind: "invite_address", title: "Summit, Manchester" }],
+  );
   assertEquals(v.travel, false);
-  assertEquals(v.reason, "location-within-home-radius");
+  assertEquals(v.reason, "location-full-day-within-home-radius");
 });
 
 Deno.test("flight entry with location abroad: travel", () => {
