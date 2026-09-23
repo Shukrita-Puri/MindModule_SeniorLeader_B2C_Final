@@ -476,6 +476,7 @@ import {
   pickCitablePattern,
   readPatternStore,
 } from "../_shared/patterns/pattern-eligibility.ts";
+import { loadLatestOccurrenceKeys } from "../_shared/patterns/latest-occurrences.ts";
 import {
   enrich as enrichForBucket,
   eventBucketFor as classifyEventBucket,

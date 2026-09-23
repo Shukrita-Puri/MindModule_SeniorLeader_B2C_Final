@@ -59,6 +59,7 @@ import {
   pickCitablePattern,
   readPatternStore,
 } from "../_shared/patterns/pattern-eligibility.ts";
+import { loadLatestOccurrenceKeys } from "../_shared/patterns/latest-occurrences.ts";
 import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import {
   CATEGORY_MAX_SLOTS,
