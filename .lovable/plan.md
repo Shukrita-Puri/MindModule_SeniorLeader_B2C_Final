@@ -1,156 +1,221 @@
-# Pattern reminders: real occurrence counts, subtype-level evidence, right time
+# Stage 1 — answers before building
 
-## Answers first
+## 1. Every subcategory A–H, with your last-365-day counts (distinct days)
 
-### (a) Where patterns are stored today, and what I would add
+Counts are distinct calendar days, cross-provider duplicates collapsed.
+Anything not listed with a count has 0 days in the last year.
 
-Table: `public.causality_findings`. Key `(user_id, pattern_kind, computed_for_date)`,
-`pattern_kind = 'cause_effect_v2'`. Columns: `payload jsonb` (what the Insights
-card renders), `signal_summary jsonb` (the flat projection nudges/Plan/Brief
-read), plus `event_subcategory text`.
+### A Board & Governance
+| Subcategory | Covers | Your days |
+|---|---|---|
+| trustee | school / nonprofit / trustee board | 0 |
+| board_meeting | main board meeting | **4** |
+| board_committee | audit, remco, sub-committee | 1 |
+| board_prep | prep session before a board | 0 |
+| nonexec_board | NED / non-exec board | 0 |
+| investor_meeting | investor update meeting | 0 |
+| earnings_call | earnings / results call | 0 |
+| qbr | quarterly business review | 0 |
+| budget_review | budget / forecast review | 0 |
+| ma_discussion | M&A discussion | 0 |
+| strategy | strategy planning session | 0 |
 
-Both stores are already JSON, so **no new column and no new table**. I add new
-top-level keys inside `signal_summary`:
+**Recommend subtype level.** A board meeting, a committee and a budget review
+carry very different stakes and preparation.
+
+### B Influence & Persuasion
+| Subcategory | Covers | Your days |
+|---|---|---|
+| pitch_competitive | competitive pitch / RFP | 0 |
+| fundraising | fundraising / investor pitch | 2 |
+| negotiation | negotiation, term discussions | 0 |
+| client_presentation | client or customer presentation | 1 |
+
+**Recommend subtype level.** A fundraise and a routine client presentation are
+not the same demand.
+
+### C Visibility & Communication
+| Subcategory | Covers | Your days |
+|---|---|---|
+| roundtable | speaking on a roundtable | 0 |
+| stakeholder_communication | formal stakeholder comms | 0 |
+| media | media, press, podcast | 1 |
+| town_hall | all-hands / town hall | 0 |
+| speaking | keynote, conference panel | 0 |
+
+**Recommend subtype level** — exactly your interview-vs-internal-update example.
+
+### D Interpersonal High-Stakes
+| Subcategory | Covers | Your days |
+|---|---|---|
+| executive_1on1 | 1:1 with an exec or peer | **7** |
+| leadership_sync | exec / leadership team sync | 0 |
+| performance_review | performance review | 0 |
+| difficult_conversation | escalation, hard conversation | 0 |
+| layoff | layoff / restructure | 0 |
+| hiring_interview | interviewing a candidate | 1 |
+| hiring_committee | hiring committee / being interviewed | 0 |
+| crisis_decision | crisis or incident call | 0 |
+
+**Recommend subtype level.** A 1:1 and a layoff conversation are incomparable.
+
+### E Deep Work & Strategy
+| Subcategory | Covers | Your days |
+|---|---|---|
+| community | member group / community session | **13** |
+| routine_sync | catch-up, routine sync | **4** |
+| learning | passive attendance, webinar | **3** |
+| deep_work | protected focus block | 1 |
+| product_launch | launch / go-live | 1 |
+| review | BP / product / design / sprint review | 0 |
+| compliance | compliance, legal, filing | 0 |
+
+**Recommend subtype level.** A webinar and a launch are opposite ends of demand.
+
+### F Conferences & External Events
+| Subcategory | Covers | Your days |
+|---|---|---|
+| attendance | attending a conference / summit | 1 |
+| event | award, summit, networking, multi-day event | 1 |
+| workshop | off-site, retreat, workshop, open day | 0 |
+
+**Recommendation: category level.** Note that speaking at a conference is not in
+F at all — keynote and panel resolve to **C.speaking**. So everything left in F
+is "being at an external event all day", one experience, exactly like Travel.
+Your speaking-vs-attending distinction is preserved because it is a C-vs-F
+distinction, not a within-F one.
+
+### G Travel — category level (confirmed)
+flight, long-haul flight, accommodation, travel day.
+
+### H Daily Rhythm & Baseline — subtype level (confirmed)
+| Subcategory | Covers | Your days |
+|---|---|---|
+| social | personal social | **5** |
+| wellness_self_care | fasting, self-care | **5** |
+| holiday | public / bank holiday | 1 |
+| recreation | culture, recreation | 1 |
+| wellness_fitness | training, exercise | 0 |
+| wellness_health_check | check-up | 0 |
+| wellness_medical | medical appointment | 0 |
+| family | family / personal | 0 |
+| pto | time off | 0 |
+
+21 further days hold only events the resolver does not recognise; they count
+toward no pattern.
+
+**Reaching 3+ today:** E.community 13, D.executive_1on1 7, H.social 5,
+H.wellness_self_care 5, A.board_meeting 4, E.routine_sync 4, E.learning 3, and
+G Travel at category level (3). Not yet: B.fundraising 2, F 2, C.media 1.
+
+## 2. Travel recounted by distinct day
+
+Your G days are 9, 15 and 17 August. The 9th holds both a flight and a hotel
+check-in — one day, not two. So: **3 travel days, inside 1 trip (9–17 Aug)**.
+Counting rule I will use: one travel occurrence per distinct local day, and
+consecutive days inside one trip window are each their own day but the trip is
+never double-counted through flight + hotel + transit on the same day.
+
+## 3. Sleep and recovery
+
+Yes, both can be added in this run with no Insights risk, because they are new
+keys written by the new pass and nothing existing is recalculated:
+
+- **sleep** — mean sleep score on the nights following that subtype's events vs
+  your own baseline.
+- **recovery** — next-morning resting-heart-rate recovery (days to return within
+  5% of baseline), which the engine already knows how to compute.
+
+Caveat for your own account: you have no sleep data from the watch, so the sleep
+key will be empty for you and is silently skipped — not an error.
+
+## 4. Everything that reads `causality_findings`
+
+| Reader | Reads | Effect of new keys |
+|---|---|---|
+| `performance-rhythm-insights` | `payload` + `signal_summary` for the Insights card | none — reads named fields only |
+| `src/components/insights/PerformanceRhythmCard.tsx` | that function's response | none |
+| `generate-mastery-plan` | `signal_summary` (3 places) | will be switched to the new keys |
+| `compute-outer-readiness` (Brief) | `signal_summary` | will be switched to the new keys |
+| `smart-nudges` | `signal_summary` | will be switched to the new keys |
+| `_shared/jit/*` (select-jit, tactical-signals, load-jit-context, maturity-tier) | pattern summary passed in from the callers above | none — they receive a summary object and read named fields |
+| `_shared/brief/deterministic-brief.ts` | pattern fields passed in | none |
+| `src/utils/rules/calendarEvents.ts` | relationship weights derived from the summary | none |
+| `admin-user-delete-preview` | row count for deletion preview | none |
+
+Every reader accesses named fields, so an added key is ignored. None will break
+or behave differently.
+
+## 5. Data size, and the cap
+
+Per occurrence: a date plus a title, roughly 60–80 bytes. Uncapped, an active
+year could hold 60+ occurrences in a busy subtype across four measures — tens of
+kilobytes per user per day, stored daily, which grows fast.
+
+Proposed cap: **the 20 most recent occurrences per pattern**, titles truncated to
+80 characters, and at most **12 subtype patterns per measure** (ranked by
+strength). That lands at roughly **8–12 KB per user per day**. `n` always
+reports the true total occurrence count even when the stored list is capped, so
+the copy still says "your last 7 board meetings" correctly.
+
+## 6. Exact structure (all inside `signal_summary`, no new column or table)
 
 ```text
-subtype_to_rhr: [{ categoryId, subtypeId, label, n, deltaPct, confidence,
-                   lastSeen, occurrences: [{ date, title }] }]
-subtype_to_hrv: [ same shape ]
+signal_summary.subtype_patterns_365: {
+  generatedAt: "2026-09-23T…",
+  windowDays: 365,
+  items: [
+    {
+      matchLevel: "subtype" | "category",   // category → G and F
+      categoryId: "A",
+      subtypeId: "gov.board_meeting",       // null when matchLevel = "category"
+      subcategory: "board_meeting",         // null when matchLevel = "category"
+      label: "Board meeting",
+      measure: "rhr" | "hrv" | "sleep" | "recovery",
+      n: 4,                                  // true total, never capped
+      deltaPct: 18.2,                        // signed, vs your own baseline
+      direction: "harm" | "recovery",
+      confidence: "strong" | "emerging",
+      lastSeen: "2026-09-02",
+      occurrences: [{ date: "2026-09-02", title: "OHS board meeting" }, …]  // ≤20
+    }
+  ]
+}
 ```
 
-Existing keys (`event_to_hrv`, `event_to_rhr`, `sleep_to_prs`,
-`consecutive_load`, `performance_lift`, `event_to_cognition`) are written exactly
-as today, same names, values and format. `payload` is untouched.
+G Travel and F sit in the same `items` array with `matchLevel: "category"` and
+null subtype fields, so the shared check can tell them apart without a second
+location. All existing keys (`event_to_rhr`, `event_to_hrv`, `sleep_to_prs`,
+`consecutive_load`, `performance_lift`, `event_to_cognition`) and `payload` are
+written exactly as today.
 
-### (b) Subtypes per category, and what stays category-level
+---
 
-Subtype counts in `_shared/events/event-subtypes.ts`:
-A 11, D 8, C 6, E 7, F 7, B 4, G 4, H 9 — all eight have subtypes.
+# Stage 2 — build rules (for your reference, not started)
 
-Treated as **category-level only**: **G Travel** (its four subtypes — flight,
-accommodation, travel day, transit — are all the same experience, as you said)
-and **H Daily Rhythm & Baseline** (baseline rhythm by definition). A, B, C, D, E
-and F are matched at subtype level with no category fallback.
+- New 365-day pass runs **only after** the existing 60-day calculation has saved
+  successfully; it lives in its own section and changes no existing setting,
+  window or threshold.
+- Nudges, Plan and Brief read **only** `subtype_patterns_365`, never the 60-day
+  keys, for every A–H type.
+- The 60-day calculation stays because Insights uses it. Later-run note: moving
+  Insights onto the 365-day data would mean re-pointing
+  `performance-rhythm-insights` and its card fields, then the 60-day pass can go.
+- Failure isolation: the new pass has its own time limit well inside the engine's
+  budget, and on any error, timeout or missing data it stops quietly, logs why,
+  and the run still saves the existing results without the new keys.
+- On/off switch: an environment setting disables the new pass with no redeploy;
+  when off the engine behaves exactly as today.
+- Then the approved shared check (`_shared/patterns/pattern-eligibility.ts`), the
+  six rules, the engine's own 10% / 15% and 0.5 / 1.0 thresholds, the copy and
+  the test list, all as previously approved.
 
-### (c) The engine's look-back window — this needs your decision
+# Stage 3 — test and deploy (as you specified)
 
-`cause-effect-engine/index.ts`: `WINDOW_DAYS = 60`, and a caller may pass
-14–90 days maximum. So today the engine sees **60 days**, and quarterly subtypes
-(board meetings, conferences) can essentially never reach 3.
-
-I would add a **separate 365-day pass used only for the new subtype keys**. The
-existing 60-day calculation stays exactly as it is, so every value Insights reads
-is unchanged. This means one extra calendar/wearable read per run, no schema
-change. Confirm and I will build it that way.
-
-### (d) Your patterns recalculated at subtype level (365 days, duplicates collapsed)
-
-| Occurrences | Subtype | Reaches 3+ |
-|---|---|---|
-| 13 | E Deep Work & Strategy / community | yes |
-| 7 | D Interpersonal High-Stakes / executive 1:1 | yes |
-| 6 | H Daily Rhythm / social | yes (category-level H) |
-| 5 | H Daily Rhythm / wellness & self-care | yes (category-level H) |
-| 4 | A Board & Governance / board meeting | yes |
-| 4 | E Deep Work & Strategy / routine sync | yes |
-| 3 | E Deep Work & Strategy / learning | yes |
-| 3 | B Influence & Persuasion / fundraising | yes |
-| 2 | D / hiring interview | no |
-| 2 | G Travel (flight 2 + accommodation 1 + travel 1 = 4 category-level) | yes at category level |
-| 2 | H / holiday | — |
-| 1 each | E deep work, E product launch, F event, F attendance, C media, A board committee, B client presentation, H recreation | no |
-
-23 further calendar days did not resolve to any category and are counted in no
-pattern. Within the current 60-day window only the top three or four rows would
-qualify — which is exactly why (c) matters.
-
-Travel at category level has 4 occurrences, so under the new rules a travel
-pattern could qualify — but only on a travel day or the evening before, which
-22 Sep was not.
-
-### Negative threshold, using the engine's own numbers
-
-Not 1%. The engine's existing meaningful-pattern thresholds:
-
-- percentage measures (resting heart rate, HRV, sleep, readiness):
-  `MIN_DELTA_PCT_EMERGING = 10%`, `MIN_DELTA_PCT_STRONG = 15%`
-- tier measures (cognition dimensions, 1–5 scale):
-  `MIN_TIER_DELTA_EMERGING = 0.5`, `MIN_TIER_DELTA_STRONG = 1.0`
-
-Direction of harm comes from the existing polarity module
-`_shared/nudges/metric-polarity.ts`: resting heart rate or heart-rate load above
-your baseline is harm; HRV, sleep or recovery below baseline is harm; the opposite
-direction is recovery and is never sent as a reminder.
-
-## The rules (one shared check)
-
-`_shared/patterns/pattern-eligibility.ts` — `isPatternCitable(finding, context)`
-returns `{ ok, reason }`, used by nudges, Plan and Brief so they cannot disagree:
-
-1. **Enough evidence** — `n >= 3` occurrences. Below 3, never used.
-2. **Real count** — once it qualifies, all of its occurrences are used and the
-   copy states the true number ("your last 5 board meetings"). Never rounded to 3.
-3. **Up to date** — the finding must include your most recent occurrence of that
-   event type, checked against the latest resolved past occurrence on your
-   deduplicated calendar. No day limit, no cadence table, no staleness ceiling.
-4. **Negative** — harm only, at the engine thresholds above.
-5. **Right time** — that event type is happening today, or starts tomorrow
-   (evening-before framing). Never on an unrelated day.
-6. **Right context** — cited only alongside its own event type, matched at
-   subtype level for A–F, category level for G Travel and H. No category
-   fallback: if the subtype has fewer than 3, nothing is said.
-
-Ties: strongest confidence, then most recent occurrence, then largest effect.
-Every rejection reason is logged.
-
-## Copy
-
-Past-tense evidence plus what is ahead, real stored numbers only:
-
-- "Travel tomorrow. Your last 4 travel days raised your resting heart rate by
-  27%. Make tonight a recovery evening."
-- "Board meeting today. Your last 4 board days dropped your HRV by 20%."
-- "3 weeks of travel ahead. Your last 4 travel periods raised resting heart rate
-  by 27%."
-
-Inside the existing copy gate — length limits, forbidden words, qualified CTA
-verb — and never phrased as a fact about today.
-
-## Files
-
-New: `_shared/patterns/pattern-eligibility.ts` + its test.
-Edited: `cause-effect-engine/index.ts` (additive subtype pass and new
-`signal_summary` keys only), `smart-nudges/index.ts` (pattern-alert branch and
-pattern citation), `generate-mastery-plan/index.ts` (pattern clause in why-lines),
-`compute-outer-readiness/index.ts` (pattern clause in the Brief).
-Read-only, not modified: the event resolver, travel/trip modules, and everything
-Insights fetches or renders.
-
-## Insights: unchanged
-
-No UI change, no change to any field Insights reads, calculates or displays.
-`payload` and every existing `signal_summary` key keep the same names, values and
-format; the new subtype keys are additive and read only by nudges, Plan and Brief.
-Verification test: capture the Insights response for your account before and after
-and assert it is byte-identical. Nothing in this plan requires an Insights change
-— if that turns out to be false during the build I stop and tell you first.
-
-## Tests
-
-- 2 occurrences rejected; 5 occurrences reported as 5, never as 3.
-- A finding missing your latest occurrence rejected.
-- A positive pattern not sent; a sub-threshold delta not sent.
-- Travel rejected 2 days before travel, accepted the evening before and on the day.
-- A board pattern from boards spread over a year accepted before the next board.
-- A conference pattern rejected on a day with no conference.
-- A media-facing pattern not used before any other Visibility & Comms event, and
-  no category fallback when a subtype has fewer than 3.
-- Insights response identical before and after.
-- Missing dates, event or travel data → skipped quietly, never an error.
-
-## Live verification
-
-Dry run `smart-nudges` for 22 Sep on your account: the travel reminder no longer
-qualifies and the log names the rule that stopped it. Then deploy one at a time —
-`cause-effect-engine`, `smart-nudges`, `generate-mastery-plan`,
-`compute-outer-readiness` — confirming each live before the next.
+Save today's engine output, dry-run the new engine without saving and show
+existing-output-identical, new subtype results and run time before/after, full
+test suite including the Insights identical test. Deploy the engine alone with
+the previous version held ready, run once for your account, then confirm the next
+scheduled all-user run is clean before smart-nudges, then generate-mastery-plan,
+then compute-outer-readiness — with the 22 Sep dry run naming the rule that stops
+the travel reminder.
