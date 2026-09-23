@@ -369,6 +369,9 @@ export async function callClaudeWithTools(params: CallClaudeParams): Promise<{
  * into OpenAI-compatible SSE events so the client parser doesn't need changes.
  */
 export async function streamClaude(params: CallClaudeParams): Promise<Response> {
+  if (resolveWritingProvider(params.fnName) === 'gemini') {
+    throw new Error('Streaming is not supported in Gemini mode yet');
+  }
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
