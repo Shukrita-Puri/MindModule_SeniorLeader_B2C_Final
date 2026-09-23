@@ -200,12 +200,81 @@ function convertToolChoice(tc?: { type: string; function?: { name: string } }): 
 }
 
 /**
- * Non-streaming call to Claude.
- * Returns the raw Anthropic response object.
+ * Fold a trailing assistant prefill (e.g. `{`) into the last user message,
+ * since the gateway has no prefill concept.
+ */
+function foldAssistantPrefill(messages: ClaudeMessage[]): ClaudeMessage[] {
+  if (messages.length === 0) return messages;
+  const last = messages[messages.length - 1];
+  if (last.role !== 'assistant') return messages;
+
+  const out = messages.slice(0, -1);
+  const prefill = (last.content || '').trim();
+  if (!prefill) return out;
+
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (out[i].role === 'user') {
+      out[i] = {
+        role: 'user',
+        content:
+          `${out[i].content}\n\nBegin your reply with exactly: ${prefill}`,
+      };
+      return out;
+    }
+  }
+  return [...out, { role: 'user', content: `Begin your reply with exactly: ${prefill}` }];
+}
+
+/**
+ * Gemini branch of callClaude: returns the SAME shape Anthropic callers read
+ * today (content[0].text, stop_reason).
+ */
+async function callGeminiAsClaude(params: CallClaudeParams): Promise<ClaudeResponse> {
+  const { system, messages } = extractSystem(params.messages, params.system);
+  const suffix = params.systemUncachedSuffix?.trim() ? params.systemUncachedSuffix : '';
+  const mergedSystem = `${system ?? ''}${suffix}` || undefined;
+
+  const { text, finish_reason, model } = await callGatewayRaw({
+    system: mergedSystem,
+    messages: foldAssistantPrefill(messages),
+    model: writingModel(),
+    max_tokens: params.max_tokens,
+    temperature: params.temperature,
+    response_format: params.response_format,
+    signal: params.signal,
+  });
+
+  const stop_reason = finish_reason === 'length'
+    ? 'max_tokens'
+    : finish_reason === 'tool_calls'
+    ? 'tool_use'
+    : 'end_turn';
+
+  return {
+    content: [{ type: 'text', text }],
+    stop_reason,
+    model,
+    usage: { input_tokens: 0, output_tokens: 0 },
+  };
+}
+
+/**
+ * Non-streaming text call.
+ * Returns the raw Anthropic-shaped response object (both providers).
  */
 export async function callClaude(params: CallClaudeParams): Promise<ClaudeResponse | ClaudeToolUseResponse> {
+  const provider = resolveWritingProvider(params.fnName);
+
+  if (provider === 'gemini') {
+    if (params.tools && params.tools.length > 0) {
+      throw new Error('Tool calling is not supported in Gemini mode yet');
+    }
+    return await callGeminiAsClaude(params);
+  }
+
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
+
 
   const { system, messages } = extractSystem(params.messages, params.system);
   const anthropicTools = convertTools(params.tools);
