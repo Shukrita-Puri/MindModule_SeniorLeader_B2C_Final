@@ -626,12 +626,16 @@ export async function callLovableAIText(params: {
 }
 
 /**
- * AI text generation with automatic Gemini fallback.
- * Tries Claude first; if Anthropic key is missing or credits exhausted (401/429),
- * automatically falls back to Lovable AI Gateway (google/gemini-2.5-flash).
- * Use this instead of callClaudeText for all non-critical paths.
+ * AI text generation.
+ * In Gemini mode (default) this is a single gateway call — on failure the caller
+ * falls back to its own deterministic/static copy, exactly as before.
+ * In Anthropic mode it tries Claude first and, if the key is missing or credits
+ * are exhausted (401/402/429/empty balance), falls back to the gateway.
  */
 export async function callAIText(params: CallClaudeParams): Promise<string> {
+  if (resolveWritingProvider(params.fnName) === 'gemini') {
+    return await callClaudeText(params);
+  }
   try {
     return await callClaudeText(params);
   } catch (err: any) {
