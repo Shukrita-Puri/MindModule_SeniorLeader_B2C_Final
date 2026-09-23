@@ -659,8 +659,18 @@ function patternEvidence(
     );
   }
 
-  // 2. Next-morning resting rate.
-  const rhr = (data.event_to_rhr ?? [])
+  // 1b. Event-typed pattern citation from the 365-day store, already decided by
+  // the SHARED eligibility check (3+ real occurrences, includes the latest
+  // occurrence, harm above threshold, own event type today or tomorrow). When a
+  // store exists it is the only source of an event-typed claim — the 60-day
+  // event_to_rhr / event_to_hrv branches below are then skipped entirely.
+  if (data.citablePatternSentence) {
+    return recordPattern(null, 0, data.citablePatternSentence);
+  }
+  const has365Store = data.patterns365Present === true;
+
+  // 2. Next-morning resting rate (only when no 365-day store is available).
+  const rhr = has365Store ? undefined : (data.event_to_rhr ?? [])
     .filter((f) => f.n >= 3 && f.rhrDeltaPct > 10)
     .filter((f) => matchesSubject(f.event_type, labels))
     .sort((a, b) => b.rhrDeltaPct - a.rhrDeltaPct)[0];
