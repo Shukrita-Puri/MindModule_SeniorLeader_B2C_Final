@@ -59,6 +59,7 @@ import {
   pickCitablePattern,
   readPatternStore,
 } from "../_shared/patterns/pattern-eligibility.ts";
+import { loadLatestOccurrenceKeys } from "../_shared/patterns/latest-occurrences.ts";
 import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import {
   CATEGORY_MAX_SLOTS,
@@ -5020,7 +5021,13 @@ async function buildSharedContext(
 
       const picked = pickCitablePattern(
         store,
-        buildPatternContext(todayKeyed, tomorrowKeyed, { allowPositive: true }),
+        buildPatternContext(todayKeyed, tomorrowKeyed, {
+          allowPositive: true,
+          latestOccurrenceByKey: await loadLatestOccurrenceKeys(
+            supabaseClient as unknown as { from: (t: string) => any },
+            req.userId,
+          ),
+        }),
       );
       ctx.citablePatternSentence = composePatternSentence(picked.chosen);
       console.info("[generate-mastery-plan][pattern-gate]", {

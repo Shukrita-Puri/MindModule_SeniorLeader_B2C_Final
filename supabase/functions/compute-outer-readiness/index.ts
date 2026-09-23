@@ -310,6 +310,7 @@ import {
   pickCitablePattern,
   readPatternStore,
 } from "../_shared/patterns/pattern-eligibility.ts";
+import { loadLatestOccurrenceKeys } from "../_shared/patterns/latest-occurrences.ts";
 import {
   resolveSignalFreshness,
   type SignalWindow,
@@ -7888,10 +7889,15 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   });
                 const todayKeyed = keyedOf(todayAllMeetings.map((m) => m.title));
                 const tomorrowKeyed = keyedOf(tomorrowHighStakesTitles);
+                const briefLatestOccurrenceByKey = await loadLatestOccurrenceKeys(
+                  db as unknown as { from: (t: string) => any },
+                  userId,
+                );
                 const picked = pickCitablePattern(
                   patternStore,
                   buildPatternContext(todayKeyed, tomorrowKeyed, {
                     allowPositive: true,
+                    latestOccurrenceByKey: briefLatestOccurrenceByKey,
                   }),
                 );
                 const sentence = composePatternSentence(picked.chosen);

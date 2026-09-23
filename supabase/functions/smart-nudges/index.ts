@@ -476,6 +476,7 @@ import {
   pickCitablePattern,
   readPatternStore,
 } from "../_shared/patterns/pattern-eligibility.ts";
+import { loadLatestOccurrenceKeys } from "../_shared/patterns/latest-occurrences.ts";
 import {
   enrich as enrichForBucket,
   eventBucketFor as classifyEventBucket,
@@ -1446,6 +1447,10 @@ interface QualifiedNudge {
   // pattern was subcategory-anchored. Null when unknown. Telemetry-only:
   // notification body/title copy is not mutated by this value.
   planLedgerHrDeltaBpm?: number | null;
+  // Named-context tokens this nudge supplies itself (e.g. the A–H event-type
+  // label quoted by a 365-day pattern sentence). Merged into v8Ctx so the
+  // post-CTA copy recheck sees the real context the body names.
+  namedContextTitles?: string[];
 }
 
 // ── v7 helpers: pattern store reader + event classifier ────────────────
@@ -4776,6 +4781,16 @@ async function evaluatePatternAlert(
           variantId: "FB-PATTERN",
         },
         deepLinkRoute: "/insights/performance-causality",
+        namedContextTitles: [
+          citable.chosen.pattern.label ?? citable.chosen.pattern.categoryId,
+          ...(citable.chosen.pattern.occurrences ?? [])
+            .flatMap((occ) => {
+              const o = occ as unknown as Record<string, unknown>;
+              if (typeof o.title === "string") return [o.title];
+              if (Array.isArray(o.titles)) return o.titles as string[];
+              return [] as string[];
+            }),
+        ].filter(Boolean),
         priority: conf === "strong" ? 3 : 2,
         anchorKind: "state",
         slot: "morning",
@@ -4897,8 +4912,13 @@ async function selectCitablePatternForNudge(
       todayKeyed.push({ categoryId: "G", subcategory: null });
     }
 
+    const latestOccurrenceByKey = await loadLatestOccurrenceKeys(
+      supabase as unknown as { from: (t: string) => any },
+      ctx.userId,
+    );
     const context = buildPatternContext(todayKeyed, tomorrowKeyed, {
       allowPositive: false,
+      latestOccurrenceByKey,
     });
     const picked = pickCitablePattern(store, context);
     console.log("[smart-nudges][pattern-gate]", JSON.stringify({
@@ -6794,7 +6814,13 @@ serve(async (req) => {
             // V8 - capture per-user named-context tokens so the post-CTA
             // recheck can satisfy requiresNamedContextToken() for AI bodies
             // anchored on event titles or the morning check-in word.
-            v8Ctx: buildV8CtxForCheck(ctx),
+            v8Ctx: {
+              ...buildV8CtxForCheck(ctx),
+              eventTitles: [
+                ...buildV8CtxForCheck(ctx).eventTitles,
+                ...(bestNudge.namedContextTitles ?? []),
+              ],
+            },
             subtitle,
             headlineVariant,
             ctaBucket,
