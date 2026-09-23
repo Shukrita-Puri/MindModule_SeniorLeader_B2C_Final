@@ -305,6 +305,12 @@ import {
   finalizePills,
 } from "../_shared/signal-pills/derive-pills.ts";
 import {
+  buildPatternContext,
+  composePatternSentence,
+  pickCitablePattern,
+  readPatternStore,
+} from "../_shared/patterns/pattern-eligibility.ts";
+import {
   resolveSignalFreshness,
   type SignalWindow,
 } from "../_shared/signal-engine/signal-freshness.ts";
