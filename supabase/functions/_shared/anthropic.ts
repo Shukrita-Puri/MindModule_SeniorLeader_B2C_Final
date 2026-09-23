@@ -505,11 +505,10 @@ export async function streamClaudeAsOpenAI(params: CallClaudeParams): Promise<Re
 }
 
 /**
- * Call Lovable AI Gateway (OpenAI-compatible).
- * Fallback provider when Anthropic is unavailable.
- * Uses google/gemini-2.5-flash by default.
+ * Call Lovable AI Gateway (OpenAI-compatible) and return the text plus the
+ * raw finish_reason, so callers can map it to an Anthropic stop_reason.
  */
-export async function callLovableAIText(params: {
+async function callGatewayRaw(params: {
   system?: string;
   messages: Array<{ role: string; content: string }>;
   model?: string;
@@ -517,9 +516,10 @@ export async function callLovableAIText(params: {
   temperature?: number;
   response_format?: { type: string };
   signal?: AbortSignal;
-}): Promise<string> {
+}): Promise<{ text: string; finish_reason: string; model: string }> {
   const apiKey = Deno.env.get('LOVABLE_API_KEY');
   if (!apiKey) throw new Error('LOVABLE_API_KEY not configured');
+
 
   const allMessages: Array<{ role: string; content: string }> = [];
   if (params.system) allMessages.push({ role: 'system', content: params.system });
