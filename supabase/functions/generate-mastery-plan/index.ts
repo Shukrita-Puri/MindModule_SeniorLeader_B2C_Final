@@ -7831,29 +7831,12 @@ function tacticalClause(
   if (pat?.count >= 3 && pat.state) {
     return `${pat.count} ${pat.state} days running.`;
   }
-  if (hrvCorrelations) {
-    // Only cite a historical HRV correlation when it belongs to THIS slot's
-    // own event type. Citing an unrelated past type ("before standup") on a day
-    // with no standup reads as a fabricated claim about today.
-    const anchorWords = String(slotAnchorTitle ?? "")
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter((w) => w.length >= 4);
-    const relevant = anchorWords.length > 0
-      ? Object.entries(hrvCorrelations).find(([evtType, c]: any) => {
-        if (!(c?.count >= 2 && Math.abs(c.avgHRVDeviation) >= 10)) return false;
-        const key = String(evtType).toLowerCase();
-        return anchorWords.some((w) => key.includes(w) || w.includes(key));
-      })
-      : null;
-    if (relevant) {
-      const [evtType, c]: any = relevant;
-      const dir = c.avgHRVDeviation < 0 ? "drops" : "lifts";
-      return `Across your past ${evtType} blocks your HRV ${dir} ~${
-        Math.abs(Math.round(c.avgHRVDeviation))
-      }%.`;
-    }
-  }
+  // Historical event-pattern citation comes ONLY from the shared eligibility
+  // check against the 365-day store: 3+ real occurrences, includes the latest
+  // occurrence, above threshold, and quoted only alongside its own event type
+  // happening today or tomorrow. The old 60-day, 2-occurrence, title-matched
+  // correlation is no longer quoted here.
+  if (shared?.citablePatternSentence) return shared.citablePatternSentence;
   const trend: any = (shared as any)?.innerReadinessPattern;
   if (trend?.trend === "declining") {
     return "State has been trending down this week.";
