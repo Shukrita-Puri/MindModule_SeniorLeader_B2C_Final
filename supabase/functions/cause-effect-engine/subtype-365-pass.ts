@@ -144,7 +144,7 @@ export async function runSubtypePatterns365Pass(
         .order("captured_at", { ascending: true })
         .limit(5000),
       supabase.from("profiles")
-        .select("home_lat, home_lng, country")
+        .select("home_lat, home_lng")
         // profiles is keyed by `id` (the Auth0 subject), not `user_id`.
         .eq("id", userId)
         .maybeSingle(),
@@ -200,7 +200,12 @@ export async function runSubtypePatterns365Pass(
 
     const travel = buildTravelOccurrences({
       locationDays,
-      calendarEvidence: travelEvidenceFromEvents(events, profile?.country ?? null),
+      calendarEvidence: travelEvidenceFromEvents(
+        events,
+        profile?.home_lat != null && profile?.home_lng != null
+          ? { lat: Number(profile.home_lat), lng: Number(profile.home_lng) }
+          : null,
+      ),
       carriedForwardDays: carried,
     });
 
