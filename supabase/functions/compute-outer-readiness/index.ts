@@ -7877,6 +7877,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
             try {
               const patternStore = readPatternStore(causalitySignalSummary);
               if (patternStore) {
+                briefPatternStorePresent = true;
                 const keyedOf = (titles: string[]) =>
                   (titles ?? []).map((t) => {
                     const e = enrichOf({ title: String(t) });
@@ -7894,6 +7895,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                   }),
                 );
                 const sentence = composePatternSentence(picked.chosen);
+                citableBriefPatternSentence = sentence;
                 if (sentence) {
                   userPrompt +=
                     `\n\nYour own history for an event type on today's or tomorrow's calendar (state it exactly as written, past tense, once):`;
