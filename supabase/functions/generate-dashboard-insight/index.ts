@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callClaudeText, CLAUDE_MODELS } from "../_shared/anthropic.ts";
+import { callClaudeText, CLAUDE_MODELS, resolveWritingProvider } from "../_shared/anthropic.ts";
 import { authenticateRequest } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -30,10 +30,17 @@ serve(async (req) => {
       recentPractices 
     } = await req.json();
     
-    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
-
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error('ANTHROPIC_API_KEY not configured');
+    // Gate on the ACTIVE provider's key only.
+    const writingProvider = resolveWritingProvider('generate-dashboard-insight');
+    const activeKey = writingProvider === 'gemini'
+      ? Deno.env.get('LOVABLE_API_KEY')
+      : Deno.env.get('ANTHROPIC_API_KEY');
+    if (!activeKey) {
+      throw new Error(
+        writingProvider === 'gemini'
+          ? 'LOVABLE_API_KEY not configured'
+          : 'ANTHROPIC_API_KEY not configured',
+      );
     }
 
     const prompt = `You are an Executive Energy and Performance Management Coach analyzing a leader's 7-day Self-Regulation progress.
@@ -66,6 +73,7 @@ Examples:
 Generate insight:`;
 
     const insight = await callClaudeText({
+      fnName: 'generate-dashboard-insight',
       messages: [{ role: 'user', content: prompt }],
       model: CLAUDE_MODELS.HAIKU,
       max_tokens: 200,
