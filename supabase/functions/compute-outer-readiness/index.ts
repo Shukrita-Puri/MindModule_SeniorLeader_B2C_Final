@@ -7856,39 +7856,52 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               }
             }
 
-            // RHR × event — next-morning recovery signal.
-            const sortedRhrCorr = (causalitySignalSummary.event_to_rhr ?? [])
-              .filter((f) => f.n >= 3 && f.rhrDeltaPct > 10)
-              .sort((a, b) => b.rhrDeltaPct - a.rhrDeltaPct)
-              .slice(0, 2);
-            if (sortedRhrCorr.length > 0) {
-              userPrompt +=
-                `\n\nRecovery after events (next-morning RHR elevation = body still recovering):`;
-              for (const f of sortedRhrCorr) {
-                const todayFlag = matchesTodayEventType(f.event_type)
-                  ? " ⚑ TODAY'S CALENDAR"
-                  : "";
-                userPrompt += `\n${f.event_type}: next-morning RHR elevated +${
-                  Math.round(f.rhrDeltaPct)
-                }% · n=${f.n} · ${f.confidence}${todayFlag}`;
+            // RHR / HRV × event — event-typed pattern citation now comes ONLY
+            // from the 365-day store through the single shared eligibility
+            // check: 3+ real occurrences, includes the leader's latest
+            // occurrence of that type, above threshold, and quoted only
+            // alongside its own event type happening today or tomorrow. The
+            // 60-day event_to_rhr / event_to_hrv keys are no longer read here.
+            try {
+              const patternStore = readPatternStore(causalitySignalSummary);
+              if (patternStore) {
+                const keyedOf = (titles: string[]) =>
+                  (titles ?? []).map((t) => {
+                    const e = enrichOf({ title: String(t) });
+                    return {
+                      categoryId: (e.categoryId ?? null) as string | null,
+                      subcategory: e.subcategory ?? null,
+                    };
+                  });
+                const todayKeyed = keyedOf(todayAllMeetings.map((m) => m.title));
+                const tomorrowKeyed = keyedOf(tomorrowHighStakesTitles);
+                const picked = pickCitablePattern(
+                  patternStore,
+                  buildPatternContext(todayKeyed, tomorrowKeyed, {
+                    allowPositive: true,
+                  }),
+                );
+                const sentence = composePatternSentence(picked.chosen);
+                if (sentence) {
+                  userPrompt +=
+                    `\n\nYour own history for an event type on today's or tomorrow's calendar (state it exactly as written, past tense, once):`;
+                  userPrompt += `\n${sentence}`;
+                } else {
+                  console.log(
+                    "[brief][pattern-gate] nothing citable:",
+                    JSON.stringify(picked.rejections.slice(0, 6)),
+                  );
+                }
               }
+            } catch (patternGateErr) {
+              console.warn(
+                "[brief][pattern-gate] skipped:",
+                patternGateErr instanceof Error
+                  ? patternGateErr.message
+                  : patternGateErr,
+              );
             }
 
-            // HRV × event — overnight recovery only, max one line.
-            const sortedHrvCorr = (causalitySignalSummary.event_to_hrv ?? [])
-              .filter((f) => f.n >= 3 && Math.abs(f.hrvDeltaPct) >= 15)
-              .sort((a, b) => Math.abs(b.hrvDeltaPct) - Math.abs(a.hrvDeltaPct))
-              .slice(0, 1);
-            for (const f of sortedHrvCorr) {
-              const todayFlag = matchesTodayEventType(f.event_type)
-                ? " ⚑ TODAY'S CALENDAR"
-                : "";
-              userPrompt +=
-                `\n\nPost-event overnight recovery (HRV next morning — recovery signal only, not in-event):`;
-              userPrompt += `\n${f.event_type}: next-morning HRV ${
-                f.hrvDeltaPct < 0 ? "lower" : "higher"
-              } by ~${Math.abs(Math.round(f.hrvDeltaPct))}% · n=${f.n} · ${f.confidence}${todayFlag}`;
-            }
 
             // Cognition × event — which events drain clarity / sharpness.
             const sortedCogCorr = (causalitySignalSummary.event_to_cognition ?? [])
