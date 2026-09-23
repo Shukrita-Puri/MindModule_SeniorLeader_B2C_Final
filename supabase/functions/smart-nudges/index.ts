@@ -469,6 +469,14 @@ import {
 } from "../_shared/events/event-classifier.ts";
 import { resolveEvent } from "../_shared/events/resolve-event-category.ts";
 import {
+  buildPatternContext,
+  type CitablePattern,
+  composePatternSentence,
+  patternKey,
+  pickCitablePattern,
+  readPatternStore,
+} from "../_shared/patterns/pattern-eligibility.ts";
+import {
   enrich as enrichForBucket,
   eventBucketFor as classifyEventBucket,
 } from "../_shared/events/pattern-bucket.ts";
@@ -4750,50 +4758,32 @@ async function evaluatePatternAlert(
     (Date.now() - ctx.lastAppOpen.getTime()) < 4 * 60 * 60 * 1000
   ) return null;
 
-  const prettifyPatternLabel = (label: string) =>
-    label
-      .replace(/[_-]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .replace(/\b\w/g, (m) => m.toUpperCase());
-
-  const topEventPattern = [...(ctx.pattern?.event_to_hrv ?? [])]
-    .filter((item) => (item.hrvDeltaPct < 0 || item.rhrElevated) && item.n >= 3)
-    .sort((a, b) => {
-      const confidenceWeight = (value: "strong" | "emerging") =>
-        value === "strong" ? 1 : 0;
-      return (
-        confidenceWeight(b.confidence) - confidenceWeight(a.confidence) ||
-        Math.abs(b.hrvDeltaPct) - Math.abs(a.hrvDeltaPct) ||
-        b.n - a.n
-      );
-    })[0] ?? null;
-
-  if (topEventPattern) {
-    const eventLabel = prettifyPatternLabel(topEventPattern.event_type);
-    // Polarity SSOT: HRV deviation is signed, so the sentence states the
-    // measured direction. Cost framing is only reachable on an unfavourable
-    // direction with strong confidence and enough samples.
-    return {
-      type: "pattern_alert",
-      copy: {
-        title: "Your pattern is ready",
-        body: patternClaimSentence({
-          label: eventLabel,
-          metric: "hrv",
-          deltaPct: topEventPattern.hrvDeltaPct,
-          n: topEventPattern.n,
-          confidence: topEventPattern.confidence,
-        }),
-        variantId: "FB-PATTERN",
-      },
-      deepLinkRoute: "/insights/performance-causality",
-      priority: topEventPattern.confidence === "strong" ? 3 : 2,
-      anchorKind: "state",
-      slot: "morning",
-      signalStrength: topEventPattern.confidence === "strong" ? 2 : 1,
-    };
+  // ── Event-typed pattern citation: 365-day store + the ONE shared check ──
+  // A pattern reaches the leader only when it has 3+ real occurrences, includes
+  // their latest occurrence of that type, shows harm, and that same event type
+  // is happening today or starting tomorrow. No category fallback, no
+  // 60-day keys, no present-tense claim about today.
+  const citable = await selectCitablePatternForNudge(ctx, supabase);
+  if (citable.chosen) {
+    const body = composePatternSentence(citable.chosen);
+    if (body) {
+      const conf = citable.chosen.pattern.confidence ?? "emerging";
+      return {
+        type: "pattern_alert",
+        copy: {
+          title: "Your pattern is ready",
+          body,
+          variantId: "FB-PATTERN",
+        },
+        deepLinkRoute: "/insights/performance-causality",
+        priority: conf === "strong" ? 3 : 2,
+        anchorKind: "state",
+        slot: "morning",
+        signalStrength: conf === "strong" ? 2 : 1,
+      };
+    }
   }
+
 
   const consecutiveLoad = ctx.pattern?.consecutive_load;
   if (
@@ -4863,6 +4853,80 @@ async function evaluatePatternAlert(
   return null;
 }
 
+/**
+ * Event-typed pattern citation for reminders. Reads ONLY the 365-day store and
+ * decides through the single shared check. Negative-only (reminders never cite a
+ * positive pattern). Any missing data returns nothing quietly, never throws.
+ */
+async function selectCitablePatternForNudge(
+  ctx: NudgeContext,
+  supabase: SupabaseLoose,
+): Promise<{
+  chosen: CitablePattern | null;
+  rejections: Array<{ key: string; measure: string; reason: string }>;
+}> {
+  try {
+    const { data: row } = await supabase
+      .from("causality_findings")
+      .select("signal_summary, computed_for_date")
+      .eq("user_id", ctx.userId)
+      .eq("pattern_kind", "cause_effect_v2")
+      .order("computed_for_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const store = readPatternStore((row as any)?.signal_summary);
+    if (!store) {
+      return { chosen: null, rejections: [{ key: "-", measure: "-", reason: "no_pattern_store" }] };
+    }
+
+    const resolveKeys = (events: CalendarEvent[]) =>
+      (events ?? []).map((e) => {
+        try {
+          const r = resolveEvent(e as unknown as Record<string, unknown>);
+          return { categoryId: r.categoryId, subcategory: r.subcategory };
+        } catch {
+          return { categoryId: null, subcategory: null };
+        }
+      });
+
+    const todayKeyed = resolveKeys(ctx.todayEvents);
+    const tomorrowKeyed = resolveKeys(ctx.tomorrowEvents);
+    // Travel awareness comes from the travel SSOT, not from a title.
+    if (ctx.travelSignal?.travelDay) {
+      todayKeyed.push({ categoryId: "G", subcategory: null });
+    }
+
+    const context = buildPatternContext(todayKeyed, tomorrowKeyed, {
+      allowPositive: false,
+    });
+    const picked = pickCitablePattern(store, context);
+    console.log("[smart-nudges][pattern-gate]", JSON.stringify({
+      user_id: ctx.userId,
+      today_keys: [...context.todayKeys],
+      tomorrow_keys: [...context.tomorrowKeys],
+      chosen: picked.chosen
+        ? {
+          key: patternKey(picked.chosen.pattern),
+          measure: picked.chosen.pattern.measure,
+          n: picked.chosen.pattern.n,
+          timing: picked.chosen.timing,
+        }
+        : null,
+      rejections: picked.rejections.slice(0, 12),
+    }));
+    return picked;
+  } catch (err) {
+    console.warn(
+      "[smart-nudges][pattern-gate] skipped:",
+      err instanceof Error ? err.message : err,
+    );
+    return { chosen: null, rejections: [{ key: "-", measure: "-", reason: "error" }] };
+  }
+}
+
+
+
 // Extracts the strongest human-readable pattern from the signal_summary jsonb
 // projected by cause-effect-engine. Returns null when no eligible pattern
 // (strong/emerging) is present.
@@ -4885,31 +4949,12 @@ function extractTopPattern(
     c === "strong" || c === "emerging";
   const rankOf = (c: "strong" | "emerging") => (c === "strong" ? 2 : 1);
 
-  const eventArrays: Array<[string, string]> = [
-    ["event_to_hrv", "hrvDeltaPct"],
-    ["event_to_rhr", "rhrDeltaPct"],
-  ];
-  for (const [key, deltaKey] of eventArrays) {
-    const arr = s[key];
-    if (Array.isArray(arr)) {
-      for (const item of arr) {
-        if (!item || typeof item !== "object") continue;
-        const it = item as Record<string, unknown>;
-        if (!eligible(it.confidence)) continue;
-        const eventType = typeof it.event_type === "string" ? it.event_type : null;
-        const delta = typeof it[deltaKey] === "number" ? (it[deltaKey] as number) : null;
-        if (!eventType || delta === null) continue;
-        const sign = delta > 0 ? "+" : "";
-        const metric = key === "event_to_hrv" ? "HRV" : "resting HR";
-        candidates.push({
-          label: `${eventType} → ${metric} ${sign}${Math.round(delta)}%`,
-          confidence: it.confidence,
-          rank: rankOf(it.confidence),
-          n: typeof it.n === "number" ? it.n : null,
-        });
-      }
-    }
-  }
+  // Event-typed patterns (event_to_hrv / event_to_rhr) are NO LONGER read here.
+  // Every event-typed citation now goes through the 365-day store and the shared
+  // eligibility check in selectCitablePatternForNudge(), so a historical
+  // association can never be sent on an unrelated day. The non-event branches
+  // below (sleep → readiness, consecutive load) are unchanged.
+
 
   const sleep = s.sleep_to_prs as Record<string, unknown> | undefined;
   if (sleep && eligible(sleep.confidence) && typeof sleep.lowSleepPrsDeltaPct === "number") {

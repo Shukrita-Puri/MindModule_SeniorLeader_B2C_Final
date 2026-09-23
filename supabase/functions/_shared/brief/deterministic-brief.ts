@@ -217,6 +217,14 @@ export interface DeterministicBriefFallbackOpts {
  * Mirrors `causality_findings.signal_summary` (writer: cause-effect-engine).
  */
 export interface DeterministicCausalityData {
+  /**
+   * Past-tense event-typed pattern sentence that already passed the shared
+   * eligibility check against the 365-day store. When present it is the only
+   * event-typed claim the ladder makes.
+   */
+  citablePatternSentence?: string | null;
+  /** True when a 365-day store exists, which retires the 60-day event keys here. */
+  patterns365Present?: boolean;
   event_to_hrv?: Array<
     { event_type: string; n: number; hrvDeltaPct: number; confidence?: string }
   > | null;
@@ -659,8 +667,18 @@ function patternEvidence(
     );
   }
 
-  // 2. Next-morning resting rate.
-  const rhr = (data.event_to_rhr ?? [])
+  // 1b. Event-typed pattern citation from the 365-day store, already decided by
+  // the SHARED eligibility check (3+ real occurrences, includes the latest
+  // occurrence, harm above threshold, own event type today or tomorrow). When a
+  // store exists it is the only source of an event-typed claim — the 60-day
+  // event_to_rhr / event_to_hrv branches below are then skipped entirely.
+  if (data.citablePatternSentence) {
+    return recordPattern(null, 0, data.citablePatternSentence);
+  }
+  const has365Store = data.patterns365Present === true;
+
+  // 2. Next-morning resting rate (only when no 365-day store is available).
+  const rhr = has365Store ? undefined : (data.event_to_rhr ?? [])
     .filter((f) => f.n >= 3 && f.rhrDeltaPct > 10)
     .filter((f) => matchesSubject(f.event_type, labels))
     .sort((a, b) => b.rhrDeltaPct - a.rhrDeltaPct)[0];
@@ -674,8 +692,8 @@ function patternEvidence(
     );
   }
 
-  // 3. Next-morning recovery.
-  const hrv = (data.event_to_hrv ?? [])
+  // 3. Next-morning recovery (only when no 365-day store is available).
+  const hrv = has365Store ? undefined : (data.event_to_hrv ?? [])
     .filter((f) => f.n >= 3 && Math.abs(f.hrvDeltaPct) >= 15)
     .filter((f) => matchesSubject(f.event_type, labels))
     .sort((a, b) => Math.abs(b.hrvDeltaPct) - Math.abs(a.hrvDeltaPct))[0];

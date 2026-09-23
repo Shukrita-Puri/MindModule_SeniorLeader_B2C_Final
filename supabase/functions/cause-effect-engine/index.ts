@@ -46,6 +46,7 @@ import {
 import { dayOfWeekFromIsoDate } from "../_shared/signal-engine/day-kind-detector.ts";
 import { fetchRenderableLoadShape, getLoadShapeOrDefault } from "../_shared/load-shape/read.ts";
 import { insightsShapePayload } from "../_shared/load-shape/surfaces.ts";
+import { runSubtypePatterns365Pass } from "./subtype-365-pass.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -2455,6 +2456,35 @@ serve(async (req) => {
         signal_summary: signalSummary as any,
       }, { onConflict: "user_id,pattern_kind,computed_for_date" });
     if (upsertErr) console.error("[cause-effect-engine] cache upsert failed:", upsertErr);
+
+    // ── NEW (additive): 365-day subtype pattern pass ──────────────────
+    // Runs only after the existing 60-day results above have been saved.
+    // Writes one new key (signal_summary.subtype_patterns_365) and nothing
+    // else — every existing key, threshold and window is untouched, so
+    // Insights reads exactly what it read before. Own time limit, own
+    // off switch, and any failure is logged and swallowed.
+    if (!upsertErr) {
+      try {
+        const pass = await runSubtypePatterns365Pass(supabase, userId, todayStr, {
+          dryRun: body?.dry_run_365 === true,
+        });
+        console.log("[cause-effect-engine][365]", JSON.stringify({
+          user_id: userId,
+          ok: pass.ok,
+          reason: pass.reason ?? null,
+          items: pass.itemCount ?? 0,
+          duration_ms: pass.durationMs,
+        }));
+        if (body?.dry_run_365 === true) {
+          (payload as any).subtypePatterns365DryRun = pass.store ?? null;
+        }
+      } catch (passErr) {
+        console.warn(
+          "[cause-effect-engine][365] skipped:",
+          passErr instanceof Error ? passErr.message : passErr,
+        );
+      }
+    }
 
     // Attach the subset of signal_summary that client surfaces read (Insights
     // Stress Load renders `subcategory_lift`). Additive — never breaking.

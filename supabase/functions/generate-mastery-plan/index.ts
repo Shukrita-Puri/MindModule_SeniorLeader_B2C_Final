@@ -52,6 +52,13 @@ import {
 } from "../_shared/events/event-categories.ts";
 // A–H resolution via the single canonical entry point.
 import { resolveEvent, type ResolveEventInput } from "../_shared/events/resolve-event-category.ts";
+import {
+  buildPatternContext,
+  composePatternSentence,
+  patternKey,
+  pickCitablePattern,
+  readPatternStore,
+} from "../_shared/patterns/pattern-eligibility.ts";
 import { shadowClassifyAndLog } from "../_shared/events/shadow-classify.ts";
 import {
   CATEGORY_MAX_SLOTS,
@@ -4666,6 +4673,13 @@ interface SharedContext {
   restingHRBaseline: number | null;
   /** Observed load behind / ahead of today — justifies recovery on quiet days. */
   loadContext: LoadContext | null;
+  /**
+   * Past-tense pattern sentence that passed the SHARED eligibility check
+   * (`_shared/patterns/pattern-eligibility.ts`) against the 365-day store.
+   * Null whenever nothing qualifies — the why-line then says nothing about
+   * patterns.
+   */
+  citablePatternSentence: string | null;
 }
 
 
@@ -4818,6 +4832,7 @@ async function buildSharedContext(
     strategicContext: null,
     restingHRBaseline: null,
     loadContext: null,
+    citablePatternSentence: null,
   };
 
   // ── Travel SSOT (shared with Brief + Smart Nudges) ─────────────────────
@@ -4957,6 +4972,77 @@ async function buildSharedContext(
       loadErr?.message,
     );
   }
+
+  // ── Citable pattern for the why-line (365-day store + shared check) ──────
+  // A pattern may only be quoted when it has 3+ real occurrences, includes the
+  // leader's latest occurrence of that type, shows harm (or a positive pattern,
+  // which the Plan is allowed to cite), and that same event type is happening
+  // today or starting tomorrow. Failure-tolerant: null keeps today's copy.
+  try {
+    const store = readPatternStore(ctx.signalSummary);
+    if (store) {
+      const todayLocal = getLocalDateISO(req.timezoneOffset);
+      const tomorrowLocal = new Date(
+        Date.parse(todayLocal + "T00:00:00Z") + 86400000,
+      ).toISOString().slice(0, 10);
+      const fromIso = new Date(Date.parse(todayLocal + "T00:00:00Z") - 86400000)
+        .toISOString();
+      const toIso = new Date(Date.parse(tomorrowLocal + "T00:00:00Z") + 2 * 86400000)
+        .toISOString();
+      const { data: windowRows } = await supabaseClient
+        .from("calendar_events")
+        .select("title, start_time, end_time, is_all_day, event_category, event_subcategory, category_resolved_by, category_confidence")
+        .eq("user_id", req.userId)
+        .gte("start_time", fromIso)
+        .lte("start_time", toIso);
+
+      const todayKeyed: Array<{ categoryId: string | null; subcategory: string | null }> = [];
+      const tomorrowKeyed: typeof todayKeyed = [];
+      for (const row of ((windowRows ?? []) as any[])) {
+        const startMs = new Date(String(row?.start_time ?? "")).getTime();
+        if (!Number.isFinite(startMs)) continue;
+        const localDate = new Date(startMs - (req.timezoneOffset ?? 0) * 60000)
+          .toISOString().slice(0, 10);
+        let keyed: { categoryId: string | null; subcategory: string | null };
+        try {
+          const r = resolveEvent(row);
+          keyed = { categoryId: r.categoryId, subcategory: r.subcategory };
+        } catch (_e) {
+          continue;
+        }
+        if (localDate === todayLocal) todayKeyed.push(keyed);
+        else if (localDate === tomorrowLocal) tomorrowKeyed.push(keyed);
+      }
+      // Travel awareness comes from the travel SSOT, never from a title.
+      if (ctx.travelSignal?.travelDay) {
+        todayKeyed.push({ categoryId: "G", subcategory: null });
+      }
+
+      const picked = pickCitablePattern(
+        store,
+        buildPatternContext(todayKeyed, tomorrowKeyed, { allowPositive: true }),
+      );
+      ctx.citablePatternSentence = composePatternSentence(picked.chosen);
+      console.info("[generate-mastery-plan][pattern-gate]", {
+        chosen: picked.chosen
+          ? {
+            key: patternKey(picked.chosen.pattern),
+            measure: picked.chosen.pattern.measure,
+            n: picked.chosen.pattern.n,
+            timing: picked.chosen.timing,
+          }
+          : null,
+        rejections: picked.rejections.slice(0, 8),
+      });
+    }
+  } catch (patternErr: any) {
+    console.warn(
+      "[generate-mastery-plan] pattern gate skipped:",
+      patternErr?.message,
+    );
+  }
+
+
 
 
   // ═══ PARALLEL BATCH: All server-side data fetching consolidated ═══
@@ -7745,29 +7831,12 @@ function tacticalClause(
   if (pat?.count >= 3 && pat.state) {
     return `${pat.count} ${pat.state} days running.`;
   }
-  if (hrvCorrelations) {
-    // Only cite a historical HRV correlation when it belongs to THIS slot's
-    // own event type. Citing an unrelated past type ("before standup") on a day
-    // with no standup reads as a fabricated claim about today.
-    const anchorWords = String(slotAnchorTitle ?? "")
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter((w) => w.length >= 4);
-    const relevant = anchorWords.length > 0
-      ? Object.entries(hrvCorrelations).find(([evtType, c]: any) => {
-        if (!(c?.count >= 2 && Math.abs(c.avgHRVDeviation) >= 10)) return false;
-        const key = String(evtType).toLowerCase();
-        return anchorWords.some((w) => key.includes(w) || w.includes(key));
-      })
-      : null;
-    if (relevant) {
-      const [evtType, c]: any = relevant;
-      const dir = c.avgHRVDeviation < 0 ? "drops" : "lifts";
-      return `Across your past ${evtType} blocks your HRV ${dir} ~${
-        Math.abs(Math.round(c.avgHRVDeviation))
-      }%.`;
-    }
-  }
+  // Historical event-pattern citation comes ONLY from the shared eligibility
+  // check against the 365-day store: 3+ real occurrences, includes the latest
+  // occurrence, above threshold, and quoted only alongside its own event type
+  // happening today or tomorrow. The old 60-day, 2-occurrence, title-matched
+  // correlation is no longer quoted here.
+  if (shared?.citablePatternSentence) return shared.citablePatternSentence;
   const trend: any = (shared as any)?.innerReadinessPattern;
   if (trend?.trend === "declining") {
     return "State has been trending down this week.";
@@ -8412,15 +8481,11 @@ async function applyV51Enrichment(
       if (category) {
         const role = phase === "post" ? "PREVENT" : "PREPARE";
         const w = req.wearableContext;
-        const corr = hrvCorrelations?.eventToHrv ||
-          hrvCorrelations?.hrvEventCorrelation || null;
-        const patternSummary =
-          corr && corr.eventType && typeof corr.avgHrvDelta === "number" &&
-            corr.occurrences >= 3
-            ? `HRV ${corr.avgHrvDelta > 0 ? "rises" : "drops"} ~${
-              Math.abs(Math.round(corr.avgHrvDelta))
-            }% around ${corr.eventType} (n=${corr.occurrences})`
-            : null;
+        // Pattern citation comes ONLY from the shared eligibility check against
+        // the 365-day store (3+ real occurrences, includes the latest one,
+        // above threshold, and only alongside its own event type today or
+        // tomorrow). Null means the line says nothing about patterns.
+        const patternSummary = shared.citablePatternSentence ?? null;
         // Shared state band — read directly off the same brief snapshot that
         // drives the MRS dial. NEVER re-banded; falls through to null when
         // the snapshot is missing.
