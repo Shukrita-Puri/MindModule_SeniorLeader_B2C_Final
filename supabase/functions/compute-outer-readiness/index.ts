@@ -4857,6 +4857,12 @@ serve(async (req) => {
       category: string;
       subcategory: string;
     }> = [];
+    /**
+     * Event-typed pattern sentence that passed the SHARED eligibility check
+     * against the 365-day store. Null means no pattern may be cited at all.
+     */
+    let citableBriefPatternSentence: string | null = null;
+    let briefPatternStorePresent = false;
     let practicesCompletedThisWeek = 0;
     let practiceCompletionRate = 0;
     let daysSinceCoachSession: number | null = null;
@@ -10179,7 +10185,13 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 // generic branch sources its counts and body signal from it.
                 windowContext: briefWindowContext ?? null,
                 // Same pattern-store projection BUCKET 3 shows the LLM.
-                causalityData: causalitySignalSummary ?? null,
+                causalityData: causalitySignalSummary
+                  ? {
+                    ...causalitySignalSummary,
+                    citablePatternSentence: citableBriefPatternSentence,
+                    patterns365Present: briefPatternStorePresent,
+                  }
+                  : null,
                 variantSeed: `${userId}|${userLocalDate}|${
                   getTimeOfDay(hour)
                 }`,
