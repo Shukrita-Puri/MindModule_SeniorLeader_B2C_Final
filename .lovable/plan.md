@@ -1,11 +1,24 @@
 # Switch writing to Gemini Flash (Claude kept, switchable) + coach AI off
 
-Two independent changes, both reversible by an env var, with no prompt, wording
-rule, validator, schema, table or screen changes.
+Two reversible changes. No prompt, wording rule, validator, schema, table or
+screen changes.
 
-## Part 1 — Coach features make no model calls at all
+## Findings on the four borderline functions
 
-The coach isn't live, so its functions must not call any provider.
+| Function | Who calls it | What it writes | Who reads that | Verdict |
+|---|---|---|---|---|
+| extract-tool-commitments | dialogue-session-manage, process-orphaned-sessions (coach only) | `coach_tools_offered` | generate-jit-events reads existing rows | Coach-only → disable |
+| resolve-session-commitments | dialogue-session-manage, process-orphaned-sessions (coach only) | `coach_accountability_tracker` | smart-nudges, Plan, Brief read existing rows | Coach-only → disable |
+| detect-recurring-patterns | dialogue-session-manage, process-orphaned-sessions (coach only) | `coach_pattern_observations` | smart-nudges, Brief read existing rows | Coach-only → disable |
+| infer-current-state | only the `INFER_CURRENT_STATE` action in daily-checkins, which nothing in the app or backend calls | `inferred_states` | nothing reads it | Not coach-only but unused → Part 2 (Gemini), not disabled |
+
+Note on the three coach tables: live features (Smart Nudges, Plan, Brief,
+JIT events) read rows from them but never write them. Turning the writers off
+means no *new* coach rows; existing rows keep being read exactly as today, and
+none of those readers requires fresh rows. The pattern eligibility gate,
+readiness/MRS scoring and signal pills do not touch these tables at all.
+
+## Part 1 — Coach features make no model calls (deployed first)
 
 - New env var `COACH_AI_ENABLED`, default `"false"`.
 - At the very top of each coach function — before any provider call and before
@@ -14,15 +27,15 @@ The coach isn't live, so its functions must not call any provider.
   `extract-coach-insights`, `detect-coach-scenarios`,
   `analyze-probing-effectiveness`, `dialogue-session-manage`,
   `process-orphaned-sessions`, `extract-tool-commitments`,
-  `resolve-session-commitments`, `detect-recurring-patterns`,
-  `infer-current-state`.
+  `resolve-session-commitments`, `detect-recurring-patterns`.
 - Existing code stays intact behind the flag; these functions are **not**
-  migrated to Gemini in this run.
-- Scheduled trigger found: the `process-orphaned-sessions` cron job runs every
-  10 minutes. The flag makes it a cheap no-op; the job is also unscheduled so
-  nothing is invoked automatically. No other coach function is on a schedule or
-  a database trigger. `dialogue-session-manage` is invoked from app code only.
-- Frontend untouched; a call that reaches a coach function returns a clean 200,
+  migrated to Gemini this run.
+- Scheduled trigger: the `process-orphaned-sessions` cron runs every 10 minutes.
+  The flag makes it a no-op and the job is also unscheduled. No other coach
+  function is on a schedule or a database trigger.
+  **When the coach is re-enabled, the `process-orphaned-sessions` cron must be
+  rescheduled** (every 10 minutes, same URL and cron-secret header).
+- Frontend untouched; a call reaching a coach function returns a clean 200,
   never a visible error.
 
 ## Part 2 — Writing routes to Gemini Flash by default, Anthropic kept
@@ -30,54 +43,51 @@ The coach isn't live, so its functions must not call any provider.
 `_shared/anthropic.ts` becomes provider-switchable:
 
 - `WRITING_PROVIDER`: `"gemini"` (default) | `"anthropic"`.
+- Per-function override, checked first: `WRITING_PROVIDER_<FUNCTION_NAME>`
+  (upper snake case, e.g. `WRITING_PROVIDER_GENERATE_ENERGY_INSIGHT`), falling
+  back to `WRITING_PROVIDER`. Callers pass their function name into the helper;
+  this is what the rollback test uses, since env vars are project-wide.
 - `WRITING_MODEL`: default `google/gemini-3.1-flash-lite`.
-- Every existing export keeps its current Anthropic implementation
-  (`callClaudeText`, `callClaude`, `callClaudeWithTools`, `callAIText`,
-  `streamClaude`, `streamClaudeAsOpenAI`, `CLAUDE_MODELS`) and gains a Gemini
-  branch selected by the env var.
-- The Gemini branch returns the **same shapes callers already read**:
-  `content[0].text`, `tool_use` blocks, and `stop_reason` mapped from
-  `finish_reason` (`stop`→`end_turn`, `tool_calls`→`tool_use`,
-  `length`→`max_tokens`).
-- Message conversion: system prompt → `system` message; `tool_use` /
-  `tool_result` blocks → `tool_calls` plus `role: "tool"` messages with matching
-  ids; `cache_control` dropped; a trailing assistant prefill (e.g. `"{"`) is
-  folded into the prompt instead of sent as a message.
-- Streaming: in Gemini mode the SSE the client receives keeps today's shape —
-  text deltas, tool-call deltas, `[DONE]`.
+- Every existing export keeps its current Anthropic implementation. A Gemini
+  branch is added **only to the text paths**: `callClaudeText`, `callClaude`
+  without tools, and `callAIText`. The Gemini branch returns the same shapes
+  callers read today — `content[0].text` and `stop_reason` mapped from
+  `finish_reason` (`stop`→`end_turn`, `length`→`max_tokens`).
+- Message conversion: system prompt → `system` message; `cache_control`
+  dropped; a trailing assistant prefill (e.g. `"{"`) folded into the prompt
+  instead of sent as a message.
+- `streamClaude`, `streamClaudeAsOpenAI` and `callClaudeWithTools` get **no**
+  Gemini branch this run — nothing live uses them while the coach is off. In
+  Gemini mode they throw a clear "not supported in Gemini mode yet" error.
 - Key gates test the **active** provider only (`LOVABLE_API_KEY` in Gemini mode,
   `ANTHROPIC_API_KEY` in Anthropic mode), so an empty Claude balance can no
   longer silently disable a feature. On failure, callers keep their existing
   deterministic/static fallbacks.
 
-### Raw Anthropic fetch sites
+### Raw Anthropic fetch sites routed through the helper
 
-The functions that call `https://api.anthropic.com/v1/messages` directly and are
-**not** coach-only route through the shared helper so they obey
-`WRITING_PROVIDER`, keeping each prompt, temperature, token cap, JSON cleanup and
-parsing exactly as written, with `frozenAwareFetch` still wrapping the call:
+Keeping each prompt, temperature, token cap, JSON cleanup and parsing exactly as
+written, with `frozenAwareFetch` still wrapping the call:
 `compute-outer-readiness` (Brief fallback), `insights-semantic-analysis`,
-`generate-coach-summary`-adjacent insight writers
-(`generate-dashboard-insight`, `generate-energy-insight`,
+`generate-dashboard-insight`, `generate-energy-insight`,
 `generate-onboarding-insight`, `generate-debrief-insights`,
-`state-patterns-insights`). Coach-only functions are left as they are, disabled
-by Part 1.
+`state-patterns-insights`, `infer-current-state`.
 
 `ANTHROPIC_API_KEY` stays configured. No Anthropic code is deleted.
 
 ## Not changing
 
 Prompt text, copy contracts and forbidden-word rules, validators, pattern
-eligibility gate, JIT, Insights, signal pills, readiness/MRS scoring, schema,
-RLS, frontend, iOS/Android, notification timing, subscriptions.
+eligibility gate, JIT selection/timing, Insights, signal pills, readiness/MRS
+scoring, schema, RLS, frontend, iOS/Android, notification timing, subscriptions.
 
 ## Verification
 
 - `deno check` on every edited function; backend test suite at its current
   baseline.
-- Redeploy in order (shared code only takes effect on redeploy), confirming each
-  live before the next: `compute-outer-readiness` → the insight writers → the
-  coach functions (flag off).
+- Deploy order (shared code only takes effect on redeploy), confirming each live
+  before the next: **coach functions with the flag off** →
+  `compute-outer-readiness` → the insight writers → `infer-current-state`.
 - Coach: invoke each one once with the flag off and confirm the no-op response,
   nothing written, and zero calls to `api.anthropic.com` or
   `ai.gateway.lovable.dev` in its logs; confirm no scheduled job triggers them.
@@ -85,5 +95,5 @@ RLS, frontend, iOS/Android, notification timing, subscriptions.
   instead of a credit error; run past inputs through each live insight function
   and confirm the same JSON fields.
 - Confirm logs show no `api.anthropic.com` calls while `WRITING_PROVIDER=gemini`.
-- Test rollback once: set `WRITING_PROVIDER=anthropic` on one function, confirm
-  it still works, set it back.
+- Rollback test: set `WRITING_PROVIDER_<FUNCTION_NAME>=anthropic` for one insight
+  function, confirm it still works, then remove it.
