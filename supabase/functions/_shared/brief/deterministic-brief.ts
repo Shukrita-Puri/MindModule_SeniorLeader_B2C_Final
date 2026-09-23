@@ -217,6 +217,14 @@ export interface DeterministicBriefFallbackOpts {
  * Mirrors `causality_findings.signal_summary` (writer: cause-effect-engine).
  */
 export interface DeterministicCausalityData {
+  /**
+   * Past-tense event-typed pattern sentence that already passed the shared
+   * eligibility check against the 365-day store. When present it is the only
+   * event-typed claim the ladder makes.
+   */
+  citablePatternSentence?: string | null;
+  /** True when a 365-day store exists, which retires the 60-day event keys here. */
+  patterns365Present?: boolean;
   event_to_hrv?: Array<
     { event_type: string; n: number; hrvDeltaPct: number; confidence?: string }
   > | null;
@@ -684,8 +692,8 @@ function patternEvidence(
     );
   }
 
-  // 3. Next-morning recovery.
-  const hrv = (data.event_to_hrv ?? [])
+  // 3. Next-morning recovery (only when no 365-day store is available).
+  const hrv = has365Store ? undefined : (data.event_to_hrv ?? [])
     .filter((f) => f.n >= 3 && Math.abs(f.hrvDeltaPct) >= 15)
     .filter((f) => matchesSubject(f.event_type, labels))
     .sort((a, b) => Math.abs(b.hrvDeltaPct) - Math.abs(a.hrvDeltaPct))[0];
