@@ -12,6 +12,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 import {
   callClaudeText,
   callAIText,
+  resolveWritingProvider,
   callLovableAIText,
   CLAUDE_MODELS,
 } from "../_shared/anthropic.ts";
@@ -6741,8 +6742,13 @@ serve(async (req) => {
 
       // llmLeanOn, llmWatchFor, llmFallbackReason hoisted to outer scope (line ~2495)
       try {
-        const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-        if (ANTHROPIC_API_KEY && !cachedSnapshot) {
+        // Gate on the ACTIVE writing provider's key only, so an unused/empty
+        // Anthropic account can never disable the Brief's AI path.
+        const activeWritingKey =
+          resolveWritingProvider("compute-outer-readiness") === "gemini"
+            ? Deno.env.get("LOVABLE_API_KEY")
+            : Deno.env.get("ANTHROPIC_API_KEY");
+        if (activeWritingKey && !cachedSnapshot) {
           const timeOfDayStr = getTimeOfDay(hour);
           const dayNames2 = [
             "Sunday",
@@ -9635,6 +9641,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 });
               } else {
                 content = await callAIText({
+                  fnName: "compute-outer-readiness",
                   // Cache-split: the stable persona/contract prefix is the
                   // cached block; the per-leader voice calibration rides in
                   // an uncached trailing block so the prefix stays identical
@@ -9702,6 +9709,7 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                         });
                       } else {
                         retryContent = await callAIText({
+                          fnName: "compute-outer-readiness",
                           // Same cache split as the primary attempt above.
                           system: systemPrompt,
                           systemUncachedSuffix: leaderVoiceBlock,

@@ -1,12 +1,58 @@
 /**
- * Shared Anthropic Claude API helper
- * 
- * Centralizes all Claude API calls so each edge function just imports callClaude() or streamClaude().
+ * Shared AI writing helper (Anthropic Claude + Lovable AI Gateway / Gemini)
+ *
+ * Centralizes all writing/extraction calls so each edge function just imports
+ * callClaude()/callClaudeText()/callAIText().
  * Handles: system prompt extraction, required max_tokens, response parsing, tool calling.
+ *
+ * PROVIDER SWITCH (2026-09-23)
+ * ---------------------------
+ * `WRITING_PROVIDER` selects the active provider: "gemini" (default) or
+ * "anthropic". A per-function override is checked first:
+ * `WRITING_PROVIDER_<FUNCTION_NAME>` (upper snake case), because env vars are
+ * project-wide. Pass `fnName` in the call params to opt into the override.
+ *
+ * `WRITING_MODEL` sets the gateway model, default google/gemini-3.1-flash-lite.
+ *
+ * Every Anthropic code path below is intact and re-enabled by flipping
+ * WRITING_PROVIDER back to "anthropic". Only the text paths (callClaude without
+ * tools, callClaudeText, callAIText) have a Gemini branch; streaming and
+ * tool-calling stay Anthropic-only for now and throw a clear error in Gemini
+ * mode.
  */
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
+const LOVABLE_AI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+
+export const DEFAULT_WRITING_MODEL = 'google/gemini-3.1-flash-lite';
+
+export type WritingProvider = 'gemini' | 'anthropic';
+
+/** The gateway model used whenever the active provider is Gemini. */
+export function writingModel(): string {
+  return (Deno.env.get('WRITING_MODEL') || '').trim() || DEFAULT_WRITING_MODEL;
+}
+
+/**
+ * Active provider. `WRITING_PROVIDER_<FUNCTION_NAME>` wins over
+ * `WRITING_PROVIDER`; default is Gemini.
+ */
+export function resolveWritingProvider(fnName?: string): WritingProvider {
+  const normalize = (v: string | undefined): WritingProvider | null => {
+    const s = (v || '').trim().toLowerCase();
+    if (s === 'anthropic' || s === 'claude') return 'anthropic';
+    if (s === 'gemini' || s === 'lovable') return 'gemini';
+    return null;
+  };
+
+  if (fnName) {
+    const envName = `WRITING_PROVIDER_${fnName.replace(/[^A-Za-z0-9]+/g, '_').toUpperCase()}`;
+    const perFn = normalize(Deno.env.get(envName));
+    if (perFn) return perFn;
+  }
+  return normalize(Deno.env.get('WRITING_PROVIDER')) ?? 'gemini';
+}
 
 // Model mapping for easy reference
 export const CLAUDE_MODELS = {
@@ -15,6 +61,7 @@ export const CLAUDE_MODELS = {
   // Claude tier this app may use. The former `SONNET` alias was removed so no
   // call site can request a Sonnet-priced model — the Anthropic bill showed
   // Sonnet usage even though the alias already pointed at Haiku.
+  // NOTE: ignored while WRITING_PROVIDER=gemini (WRITING_MODEL applies instead).
   HAIKU: 'claude-haiku-4-5-20251001',
 } as const;
 
@@ -59,6 +106,16 @@ interface CallClaudeParams {
   tool_choice?: { type: string; function?: { name: string } };
   signal?: AbortSignal;
   response_format?: { type: string };
+  /**
+   * Calling function's name, e.g. "generate-energy-insight". Enables the
+   * per-function provider override WRITING_PROVIDER_<FUNCTION_NAME>.
+   */
+  fnName?: string;
+  /**
+   * Optional fetch replacement, e.g. frozenAwareFetch bound to a function name.
+   * Used by the dormant-cluster call sites so their freeze gate stays in place.
+   */
+  fetchImpl?: (input: string, init: RequestInit) => Promise<Response>;
 }
 
 interface ClaudeResponse {
@@ -148,12 +205,82 @@ function convertToolChoice(tc?: { type: string; function?: { name: string } }): 
 }
 
 /**
- * Non-streaming call to Claude.
- * Returns the raw Anthropic response object.
+ * Fold a trailing assistant prefill (e.g. `{`) into the last user message,
+ * since the gateway has no prefill concept.
+ */
+function foldAssistantPrefill(messages: ClaudeMessage[]): ClaudeMessage[] {
+  if (messages.length === 0) return messages;
+  const last = messages[messages.length - 1];
+  if (last.role !== 'assistant') return messages;
+
+  const out = messages.slice(0, -1);
+  const prefill = (last.content || '').trim();
+  if (!prefill) return out;
+
+  for (let i = out.length - 1; i >= 0; i--) {
+    if (out[i].role === 'user') {
+      out[i] = {
+        role: 'user',
+        content:
+          `${out[i].content}\n\nBegin your reply with exactly: ${prefill}`,
+      };
+      return out;
+    }
+  }
+  return [...out, { role: 'user', content: `Begin your reply with exactly: ${prefill}` }];
+}
+
+/**
+ * Gemini branch of callClaude: returns the SAME shape Anthropic callers read
+ * today (content[0].text, stop_reason).
+ */
+async function callGeminiAsClaude(params: CallClaudeParams): Promise<ClaudeResponse> {
+  const { system, messages } = extractSystem(params.messages, params.system);
+  const suffix = params.systemUncachedSuffix?.trim() ? params.systemUncachedSuffix : '';
+  const mergedSystem = `${system ?? ''}${suffix}` || undefined;
+
+  const { text, finish_reason, model } = await callGatewayRaw({
+    system: mergedSystem,
+    messages: foldAssistantPrefill(messages),
+    model: writingModel(),
+    max_tokens: params.max_tokens,
+    temperature: params.temperature,
+    response_format: params.response_format,
+    signal: params.signal,
+    fetchImpl: params.fetchImpl,
+  });
+
+  const stop_reason = finish_reason === 'length'
+    ? 'max_tokens'
+    : finish_reason === 'tool_calls'
+    ? 'tool_use'
+    : 'end_turn';
+
+  return {
+    content: [{ type: 'text', text }],
+    stop_reason,
+    model,
+    usage: { input_tokens: 0, output_tokens: 0 },
+  };
+}
+
+/**
+ * Non-streaming text call.
+ * Returns the raw Anthropic-shaped response object (both providers).
  */
 export async function callClaude(params: CallClaudeParams): Promise<ClaudeResponse | ClaudeToolUseResponse> {
+  const provider = resolveWritingProvider(params.fnName);
+
+  if (provider === 'gemini') {
+    if (params.tools && params.tools.length > 0) {
+      throw new Error('Tool calling is not supported in Gemini mode yet');
+    }
+    return await callGeminiAsClaude(params);
+  }
+
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
+
 
   const { system, messages } = extractSystem(params.messages, params.system);
   const anthropicTools = convertTools(params.tools);
@@ -183,7 +310,8 @@ export async function callClaude(params: CallClaudeParams): Promise<ClaudeRespon
 
   if (params.signal) fetchOptions.signal = params.signal;
 
-  const response = await fetch(ANTHROPIC_API_URL, fetchOptions);
+  const doFetch = params.fetchImpl ?? ((u: string, i: RequestInit) => fetch(u, i));
+  const response = await doFetch(ANTHROPIC_API_URL, fetchOptions);
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -216,6 +344,9 @@ export async function callClaudeWithTools(params: CallClaudeParams): Promise<{
   content: string | null;
   tool_calls: Array<{ function: { name: string; arguments: string } }> | null;
 }> {
+  if (resolveWritingProvider(params.fnName) === 'gemini') {
+    throw new Error('Tool calling is not supported in Gemini mode yet');
+  }
   const response = await callClaude(params);
 
   const textContent = response.content
@@ -245,6 +376,9 @@ export async function callClaudeWithTools(params: CallClaudeParams): Promise<{
  * into OpenAI-compatible SSE events so the client parser doesn't need changes.
  */
 export async function streamClaude(params: CallClaudeParams): Promise<Response> {
+  if (resolveWritingProvider(params.fnName) === 'gemini') {
+    throw new Error('Streaming is not supported in Gemini mode yet');
+  }
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
@@ -378,11 +512,10 @@ export async function streamClaudeAsOpenAI(params: CallClaudeParams): Promise<Re
 }
 
 /**
- * Call Lovable AI Gateway (OpenAI-compatible).
- * Fallback provider when Anthropic is unavailable.
- * Uses google/gemini-2.5-flash by default.
+ * Call Lovable AI Gateway (OpenAI-compatible) and return the text plus the
+ * raw finish_reason, so callers can map it to an Anthropic stop_reason.
  */
-export async function callLovableAIText(params: {
+async function callGatewayRaw(params: {
   system?: string;
   messages: Array<{ role: string; content: string }>;
   model?: string;
@@ -390,9 +523,11 @@ export async function callLovableAIText(params: {
   temperature?: number;
   response_format?: { type: string };
   signal?: AbortSignal;
-}): Promise<string> {
+  fetchImpl?: (input: string, init: RequestInit) => Promise<Response>;
+}): Promise<{ text: string; finish_reason: string; model: string }> {
   const apiKey = Deno.env.get('LOVABLE_API_KEY');
   if (!apiKey) throw new Error('LOVABLE_API_KEY not configured');
+
 
   const allMessages: Array<{ role: string; content: string }> = [];
   if (params.system) allMessages.push({ role: 'system', content: params.system });
@@ -418,7 +553,7 @@ export async function callLovableAIText(params: {
   }
 
   const body: Record<string, unknown> = {
-    model: params.model || 'google/gemini-2.5-flash',
+    model: params.model || DEFAULT_WRITING_MODEL,
     messages: allMessages,
     max_tokens: params.max_tokens || 1024,
     temperature: params.temperature,
@@ -449,7 +584,8 @@ export async function callLovableAIText(params: {
     hasApiKey: !!apiKey,
   });
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', fetchOptions);
+  const gatewayFetch = params.fetchImpl ?? ((u: string, i: RequestInit) => fetch(u, i));
+  const response = await gatewayFetch(LOVABLE_AI_URL, fetchOptions);
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -474,16 +610,41 @@ export async function callLovableAIText(params: {
   }
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
+  return {
+    text: data.choices?.[0]?.message?.content || '',
+    finish_reason: data.choices?.[0]?.finish_reason || 'stop',
+    model: data.model || String(body.model),
+  };
 }
 
 /**
- * AI text generation with automatic Gemini fallback.
- * Tries Claude first; if Anthropic key is missing or credits exhausted (401/429),
- * automatically falls back to Lovable AI Gateway (google/gemini-2.5-flash).
- * Use this instead of callClaudeText for all non-critical paths.
+ * Call Lovable AI Gateway (OpenAI-compatible) and return just the text.
+ * Default model is WRITING_MODEL's default (google/gemini-3.1-flash-lite).
+ */
+export async function callLovableAIText(params: {
+  system?: string;
+  messages: Array<{ role: string; content: string }>;
+  model?: string;
+  max_tokens?: number;
+  temperature?: number;
+  response_format?: { type: string };
+  signal?: AbortSignal;
+}): Promise<string> {
+  const { text } = await callGatewayRaw(params);
+  return text;
+}
+
+/**
+ * AI text generation.
+ * In Gemini mode (default) this is a single gateway call — on failure the caller
+ * falls back to its own deterministic/static copy, exactly as before.
+ * In Anthropic mode it tries Claude first and, if the key is missing or credits
+ * are exhausted (401/402/429/empty balance), falls back to the gateway.
  */
 export async function callAIText(params: CallClaudeParams): Promise<string> {
+  if (resolveWritingProvider(params.fnName) === 'gemini') {
+    return await callClaudeText(params);
+  }
   try {
     return await callClaudeText(params);
   } catch (err: any) {

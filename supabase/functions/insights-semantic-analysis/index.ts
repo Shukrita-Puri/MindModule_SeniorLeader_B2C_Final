@@ -3,6 +3,16 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { frozenAwareFetch } from "../_shared/ai/llm-freeze.ts";
+import { callClaude, CLAUDE_MODELS, resolveWritingProvider } from "../_shared/anthropic.ts";
+
+const FN_NAME = 'insights-semantic-analysis';
+const semanticFetch = (u: string, i: RequestInit) => frozenAwareFetch(FN_NAME, u, i);
+/** Key for the ACTIVE writing provider only. */
+function activeWritingKey(): string | undefined {
+  return resolveWritingProvider(FN_NAME) === 'gemini'
+    ? Deno.env.get('LOVABLE_API_KEY')
+    : Deno.env.get('ANTHROPIC_API_KEY');
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -201,21 +211,17 @@ serve(async (req) => {
       if (messages && messages.length > 0) {
         const allContent = messages.map(m => m.content).join('\n\n');
         
-        const lovableApiKey = Deno.env.get('ANTHROPIC_API_KEY');
+        const lovableApiKey = activeWritingKey();
         if (lovableApiKey && allContent.length > 50) {
           try {
-            const aiResponse = await frozenAwareFetch("insights-semantic-analysis", 'https://api.anthropic.com/v1/messages',
-              {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${lovableApiKey}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  model: 'claude-3-5-haiku-latest',
-                  messages: [{
-                    role: 'user',
-                    content: `Analyze these coaching conversation excerpts and:
+            const aiData = await callClaude({
+              fnName: FN_NAME,
+              fetchImpl: semanticFetch,
+              model: CLAUDE_MODELS.HAIKU,
+              max_tokens: 1024,
+              messages: [{
+                role: 'user',
+                content: `Analyze these coaching conversation excerpts and:
 1. Extract the 5-8 most important themes or topics the user discussed
 2. Identify 2-4 meaningful relationships between themes with relationship types
 
@@ -230,14 +236,11 @@ Relationship types must be one of: "often co-occur", "tension between", "feeds i
 
 Conversation excerpts:
 ${allContent.slice(0, 3000)}`
-                  }],
-                })
-              }
-            );
+              }],
+            });
 
-            if (aiResponse.ok) {
-              const aiData = await aiResponse.json();
-              const responseText = aiData.content?.[0]?.text || '';
+            {
+              const responseText = (aiData.content?.[0] as { text?: string } | undefined)?.text || '';
               
               const jsonMatch = responseText.match(/\{[\s\S]*\}/);
               if (jsonMatch) {
@@ -258,8 +261,6 @@ ${allContent.slice(0, 3000)}`
                   }));
                 }
               }
-            } else if (aiResponse.status === 429 || aiResponse.status === 402) {
-              console.warn('AI gateway rate limited or payment required, using algorithmic fallback');
             }
           } catch (aiError) {
             console.error('AI extraction error:', aiError);
@@ -426,31 +427,22 @@ ${allContent.slice(0, 3000)}`
     let aiObservation = '';
     
     if (unifiedThemes.length >= 2) {
-      const lovableApiKey = Deno.env.get('ANTHROPIC_API_KEY');
+      const lovableApiKey = activeWritingKey();
       if (lovableApiKey) {
         try {
           const top5 = unifiedThemes.slice(0, 5).map(t => `${t.theme} (${t.totalCount} mentions)`).join(', ');
-          const observationResponse = await frozenAwareFetch("insights-semantic-analysis", 'https://api.anthropic.com/v1/messages',
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${lovableApiKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'claude-3-5-haiku-latest',
-                messages: [{
-                  role: 'user',
-                  content: `These are the five most recurring themes across this leader's check-ins, coaching sessions, and practices over the past 30 days: ${top5}. What do they collectively reveal about what is occupying this leader's inner world right now? Two sentences maximum. Speak directly to the leader. No generic language.`
-                }],
-              })
-            }
-          );
+          const obsData = await callClaude({
+            fnName: FN_NAME,
+            fetchImpl: semanticFetch,
+            model: CLAUDE_MODELS.HAIKU,
+            max_tokens: 512,
+            messages: [{
+              role: 'user',
+              content: `These are the five most recurring themes across this leader's check-ins, coaching sessions, and practices over the past 30 days: ${top5}. What do they collectively reveal about what is occupying this leader's inner world right now? Two sentences maximum. Speak directly to the leader. No generic language.`
+            }],
+          });
 
-          if (observationResponse.ok) {
-            const obsData = await observationResponse.json();
-            aiObservation = obsData.content?.[0]?.text?.trim() || '';
-          }
+          aiObservation = (obsData.content?.[0] as { text?: string } | undefined)?.text?.trim() || '';
         } catch (obsError) {
           console.error('AI observation error:', obsError);
         }
@@ -524,22 +516,18 @@ async function getNodeSummary(
   const connectedList = connectedThemes.map(c => `${c.theme} (${c.relationshipType})`).join(', ');
 
   let aiSummary = '';
-  const lovableApiKey = Deno.env.get('ANTHROPIC_API_KEY');
+  const lovableApiKey = activeWritingKey();
   
   if (lovableApiKey && excerpts.length > 20) {
     try {
-      const summaryResponse = await frozenAwareFetch("insights-semantic-analysis", 'https://api.anthropic.com/v1/messages',
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${lovableApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'claude-3-5-haiku-latest',
-            messages: [{
-              role: 'user',
-              content: `Based on the following data points about this leader, write a 3-5 sentence synthesis of what the theme "${keyword}" reveals about their inner world. Speak directly to the leader. Be specific to their data – not generic. Name the pattern, its context, and what it signals. No soft language.
+      const summaryData = await callClaude({
+        fnName: FN_NAME,
+        fetchImpl: semanticFetch,
+        model: CLAUDE_MODELS.HAIKU,
+        max_tokens: 700,
+        messages: [{
+          role: 'user',
+          content: `Based on the following data points about this leader, write a 3-5 sentence synthesis of what the theme "${keyword}" reveals about their inner world. Speak directly to the leader. Be specific to their data – not generic. Name the pattern, its context, and what it signals. No soft language.
 
 Source breakdown: ${sourceBreakdown}
 Connected themes: ${connectedList || 'none identified'}
@@ -548,15 +536,10 @@ Most recent: ${recentDate}
 
 Recent excerpts:
 ${excerpts}`
-            }],
-          })
-        }
-      );
+        }],
+      });
 
-      if (summaryResponse.ok) {
-        const summaryData = await summaryResponse.json();
-        aiSummary = summaryData.content?.[0]?.text?.trim() || '';
-      }
+      aiSummary = (summaryData.content?.[0] as { text?: string } | undefined)?.text?.trim() || '';
     } catch (summaryError) {
       console.error('AI node summary error:', summaryError);
     }

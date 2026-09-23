@@ -3216,10 +3216,14 @@ If no genuine win is present, do NOT force one – it's better to miss than to c
 // 8. HTTP HANDLER
 // =============================================================================
 
+import { coachDisabledResponse } from "../_shared/coach-flag.ts";
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const coachOff = coachDisabledResponse(corsHeaders, "self-mastery-coach");
+  if (coachOff) return coachOff;
 
   try {
     // Verify Auth0 JWT – userId comes from token, not body

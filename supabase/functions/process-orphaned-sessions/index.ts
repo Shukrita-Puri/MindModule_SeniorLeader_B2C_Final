@@ -18,10 +18,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-mm-client-platform',
 };
 
+import { coachDisabledResponse } from "../_shared/coach-flag.ts";
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const coachOff = coachDisabledResponse(corsHeaders, "process-orphaned-sessions");
+  if (coachOff) return coachOff;
 
   // Only pg_cron (CRON_SHARED_SECRET) or a service-role caller may sweep
   // orphaned coach sessions — this function fires downstream paid AI calls.

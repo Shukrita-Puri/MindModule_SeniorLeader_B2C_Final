@@ -18,10 +18,14 @@ const corsHeaders = {
 
 // Scenario detection is now handled by dedicated detect-coach-scenarios EF
 
+import { coachDisabledResponse } from "../_shared/coach-flag.ts";
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const coachOff = coachDisabledResponse(corsHeaders, "detect-recurring-patterns");
+  if (coachOff) return coachOff;
 
   try {
     const verifiedUserId = await verifyAuth0JWT(req);

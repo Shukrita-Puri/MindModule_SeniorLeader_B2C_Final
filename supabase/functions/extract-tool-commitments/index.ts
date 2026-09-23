@@ -49,10 +49,14 @@ function inferToolType(description: string): string {
   return 'reframe';
 }
 
+import { coachDisabledResponse } from "../_shared/coach-flag.ts";
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const coachOff = coachDisabledResponse(corsHeaders, "extract-tool-commitments");
+  if (coachOff) return coachOff;
 
   try {
     const verifiedUserId = await verifyAuth0JWT(req);

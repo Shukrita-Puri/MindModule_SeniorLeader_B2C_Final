@@ -92,10 +92,14 @@ EXTRACTION RULES:
 Return ONLY a JSON array of insights. Empty array [] if none found.`;
 }
 
+import { coachDisabledResponse } from "../_shared/coach-flag.ts";
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const coachOff = coachDisabledResponse(corsHeaders, "extract-coach-insights");
+  if (coachOff) return coachOff;
 
   try {
     const verifiedUserId = await verifyAuth0JWT(req);
