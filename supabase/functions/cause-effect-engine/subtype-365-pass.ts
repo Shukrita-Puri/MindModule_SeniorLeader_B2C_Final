@@ -49,14 +49,22 @@ function haversineKm(
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(x)));
 }
 
-/** Calendar evidence for travel. Conference/off-site titles are marked as such. */
+/**
+ * Calendar evidence for travel. Conference / off-site titles are marked as such
+ * so they can never establish travel on their own.
+ *
+ * An invite address counts ONLY when the invite carries real coordinates that
+ * are more than 50 km from the home anchor. A free-text address is never
+ * geocoded and never guessed at: an ordinary local meeting whose location field
+ * happens to read "Somewhere, Suite 3" must not become a travel day.
+ */
 export function travelEvidenceFromEvents(
   events: Array<{
     title?: string | null;
     start_time?: string | null;
     event_metadata?: Record<string, unknown> | null;
   }>,
-  homeCountryHint?: string | null,
+  home?: { lat: number; lng: number } | null,
 ): CalendarTravelEvidence[] {
   const out: CalendarTravelEvidence[] = [];
   for (const ev of events) {
@@ -70,14 +78,14 @@ export function travelEvidenceFromEvents(
       // A conference / off-site title is never travel on its own.
       out.push({ date, kind: "conference_title", title: ev.title ?? null });
     }
-    // An invite address away from the home country is stronger than a title.
-    const rawLoc = (ev.event_metadata as Record<string, unknown> | null)?.location;
-    const loc = typeof rawLoc === "string" ? rawLoc.trim() : "";
-    if (loc && homeCountryHint && !loc.toLowerCase().includes(homeCountryHint.toLowerCase())) {
-      const looksForeign = /,\s*[A-Za-z .'-]{3,}$/.test(loc);
-      if (looksForeign) {
-        out.push({ date, kind: "invite_address", title: ev.title ?? null });
-      }
+    const meta = (ev.event_metadata ?? null) as Record<string, unknown> | null;
+    const lat = Number(meta?.latitude ?? meta?.lat);
+    const lng = Number(meta?.longitude ?? meta?.lng);
+    if (
+      home && Number.isFinite(lat) && Number.isFinite(lng) &&
+      haversineKm(home, { lat, lng }) > 50
+    ) {
+      out.push({ date, kind: "invite_address", title: ev.title ?? null });
     }
   }
   return out;
@@ -136,8 +144,9 @@ export async function runSubtypePatterns365Pass(
         .order("captured_at", { ascending: true })
         .limit(5000),
       supabase.from("profiles")
-        .select("home_lat, home_lng, home_country")
-        .eq("user_id", userId)
+        .select("home_lat, home_lng")
+        // profiles is keyed by `id` (the Auth0 subject), not `user_id`.
+        .eq("id", userId)
         .maybeSingle(),
       supabase.from("causality_findings")
         .select("signal_summary")
@@ -191,7 +200,12 @@ export async function runSubtypePatterns365Pass(
 
     const travel = buildTravelOccurrences({
       locationDays,
-      calendarEvidence: travelEvidenceFromEvents(events, profile?.home_country ?? null),
+      calendarEvidence: travelEvidenceFromEvents(
+        events,
+        profile?.home_lat != null && profile?.home_lng != null
+          ? { lat: Number(profile.home_lat), lng: Number(profile.home_lng) }
+          : null,
+      ),
       carriedForwardDays: carried,
     });
 
