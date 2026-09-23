@@ -545,7 +545,7 @@ async function callGatewayRaw(params: {
   }
 
   const body: Record<string, unknown> = {
-    model: params.model || 'google/gemini-2.5-flash',
+    model: params.model || DEFAULT_WRITING_MODEL,
     messages: allMessages,
     max_tokens: params.max_tokens || 1024,
     temperature: params.temperature,
