@@ -261,8 +261,6 @@ ${allContent.slice(0, 3000)}`
                   }));
                 }
               }
-            } else if (aiResponse.status === 429 || aiResponse.status === 402) {
-              console.warn('AI gateway rate limited or payment required, using algorithmic fallback');
             }
           } catch (aiError) {
             console.error('AI extraction error:', aiError);
