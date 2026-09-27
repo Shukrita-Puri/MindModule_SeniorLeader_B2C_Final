@@ -28,6 +28,23 @@ The "En Route" you saw Saturday morning is not in the stored readings — the ph
 
 Not changing: the 50 km rule, A–H categories, pattern rules, caps, quiet hours, spacing, Week Ahead, Insights, JIT.
 
+## Making the hourly travel job always have a fresh location
+
+**Why it doesn't today (confirmed in the code):**
+- The server cannot read a phone's location. It only reads the last location the phone sent.
+- Every hour the server already sends your iPhone a silent wake-up. On wake-up the phone refreshes **wearable and calendar data only — it never refreshes location**. That is the main gap.
+- Location otherwise arrives only on a "significant move" (roughly several hundred metres to kilometres, at iOS's discretion) or when you open the app. That's why Saturday had one reading and the night had none.
+- Background location needs the "Always" permission. Your record shows "While Using" on Saturday and "not determined" today, so iOS can refuse background readings.
+
+**Fix, in order of impact:**
+1. **Hourly wake-up also refreshes location.** The same silent wake-up that syncs your watch and calendar also takes one location reading and sends it before the phone goes back to sleep. No new job, no extra notifications.
+2. **Record the permission level honestly.** Store the true iOS permission on every app open. If it is "While Using", the Profile card says background travel detection is limited, with one button to allow "Always". No automatic popups.
+3. **Arrival and departure events.** Keep iOS "visit" detection on (it reports when you arrive somewhere and leave), and make sure each one is sent to the server, not just shown in the app.
+4. **Freshness, not age alone.** The hourly job marks a location as fresh only if the phone actually sent one in the last few hours; older readings can support "still away" only when the calendar or a multi-day trip agrees.
+5. **Visibility.** The admin travel summary shows, per user, the time of the last real phone reading, so a silent gap is visible within hours instead of discovered by a wrong notification.
+
+Limits to be honest about: iOS can still delay or skip background wake-ups (low battery, Low Power Mode, app force-closed). With "Always" allowed plus the hourly wake-up, readings should arrive most hours; the calendar-address rule covers the gaps. These phone changes take effect in the next iOS build.
+
 ## Your design question: fewer ordered rules, and where an AI model belongs
 
 You are right that a single ordered chain (Travel → Conference → packed → Light) is the root problem: one missing input and the wrong rule wins, and each surface re-runs the chain slightly differently.
