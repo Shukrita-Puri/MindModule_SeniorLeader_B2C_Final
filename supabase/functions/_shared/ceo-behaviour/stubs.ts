@@ -58,10 +58,9 @@ export function stackedStakes(ctx: RuleContext): BehaviourFlag | null {
 }
 
 /**
- * crisisInjection — user-flagged unplanned high-stakes event (UI affordance
- * "an unplanned thing just landed"). When set, overrides the next slot's
+ * crisisInjection — unplanned high-stakes event (UI affordance or detected
+ * crisis episode / Sev-1 war room). When set, overrides the next slot's
  * regulate target with prepare+name-the-stake.
- * Detector needed: ctx.crisisEvent populated from user-side affordance.
  */
 export function crisisInjection(_ctx: RuleContext): BehaviourFlag | null {
   return null;
@@ -69,10 +68,8 @@ export function crisisInjection(_ctx: RuleContext): BehaviourFlag | null {
 
 /**
  * contextSwitchingCost — back-to-back across different topic domains
- * (e.g. product → finance → hiring) inside the same 4h window. Penalises the
+ * (e.g. operations → governance → hiring) inside the same 4h window. Penalises the
  * cognitive transition tax beyond what decisionDensity already counts.
- * Detector needed: topic classifier on event titles; pairwise domain diff in
- * the 4h window.
  */
 export function contextSwitchingCost(ctx: RuleContext): BehaviourFlag | null {
   if (ctx.signals.travelLandingDetected || ctx.signals.travelDay) return null;
@@ -84,14 +81,15 @@ export function contextSwitchingCost(ctx: RuleContext): BehaviourFlag | null {
   const distinct = new Set(inWindow.map((e) => e.categoryId!));
   if (distinct.size < 3) return null;
 
-  const hasEmotional = distinct.has("D");
-  const hasHighCognitive = distinct.has("A") || distinct.has("B") || distinct.has("C");
+  const hasEmotional = distinct.has("D") || distinct.has("J");
+  const hasHighCognitive = distinct.has("A") || distinct.has("B") || distinct.has("C") || distinct.has("E");
   const severity: BehaviourFlag["severity"] =
     (hasEmotional && hasHighCognitive) ? "high" : "medium";
 
   const nameMap: Record<string, string> = {
     A: "governance", B: "pitch/influence", C: "visibility",
-    D: "people/difficult", E: "deep work", F: "conference", G: "travel",
+    D: "people/difficult", E: "strategy/deep work", F: "conference", G: "travel",
+    I: "operations", J: "crisis",
   };
   const categoryNames = Array.from(distinct).map((c) => nameMap[c] ?? c);
   const sequenceStr = categoryNames.join(" → ");

@@ -9,7 +9,7 @@
 import type { ComboKey, ProtocolCombo } from "../protocols/protocol-combos.ts";
 import { PROTOCOL_COMBOS } from "../protocols/protocol-combos.ts";
 import type { EventCategoryId } from "./event-categories.ts";
-import { classifyEvent } from "./event-classifier.ts";
+import { classifyEvent, legacyClassifyEvent } from "./event-classifier.ts";
 import { classifyEventV2 } from "./classify-event-v2.ts";
 import { ambientLearningContext } from "./learning-store.ts";
 
@@ -63,11 +63,19 @@ export const EVENT_PHASE_MAP: Record<EventCategoryId, CategoryPhaseMap> = {
   },
   H: {
   },
+  I: {
+    post: { timing: "T+10min", combo: "somatic.reenergise", goal: "Cognitive pacing, recover from back-to-back execution", preventsBuilds: ["Prevents grind fatigue and switching cost across execution blocks"], severityHint: "low" },
+  },
+  J: {
+    pre:  { timing: "immediate / T-15min", combo: "somatic.pause", goal: "Acute nervous-system regulation, ground panic", preventsBuilds: ["Prevents sympathetic hijack under crisis pressure"], severityHint: "high" },
+    post: { timing: "T+30min",             combo: "mindset.pause", goal: "Reflective post-incident debrief, decompress and detach", preventsBuilds: ["Prevents chronic crisis stress carry-over"], severityHint: "high" },
+  },
 };
 
 /** Subcategories that should NOT generate arc slots */
 const NO_ARC_SUBCATEGORIES = new Set([
   'E.routine_sync', 'E.learning', 'E.community', 'E.compliance',
+  'I.routine_sync', 'I.compliance', 'I.admin',
 ]);
 
 /** Subcategory-level phase overrides (null entries suppress arcs entirely) */
@@ -78,6 +86,15 @@ const SUBCATEGORY_PHASE_OVERRIDE: Record<string, CategoryPhaseMap> = {
   'E.learning':     {},
   'E.community':    {},
   'E.compliance':   {},
+  'I.routine_sync': {},
+  'I.compliance':   {},
+  'I.admin':        {},
+  'I.product_launch': { post: EVENT_PHASE_MAP.I.post! },
+  'I.operating_review': { post: EVENT_PHASE_MAP.I.post! },
+  'J.crisis_decision': { pre: EVENT_PHASE_MAP.J.pre!, post: EVENT_PHASE_MAP.J.post! },
+  'J.incident_review': { post: EVENT_PHASE_MAP.J.post! },
+  'J.legal_regulatory': { pre: EVENT_PHASE_MAP.J.pre!, post: EVENT_PHASE_MAP.J.post! },
+  'J.reputation': { pre: EVENT_PHASE_MAP.J.pre!, post: EVENT_PHASE_MAP.J.post! },
 };
 
 /**
@@ -98,9 +115,9 @@ export function getPhasesForEvent(
 
 /**
  * Max number of priority slots a single event of a given category may
- * occupy in one plan. Anchors the variable-slot dedup rule: C/E/B/H
+ * occupy in one plan. Anchors the variable-slot dedup rule: C/E/B/H/I
  * collapse to a single slot per event; multi-phase categories (G long-haul,
- * F multi-day conference, A big-stakes pre+post, D pre+post same day) may
+ * F multi-day conference, A big-stakes pre+post, D pre+post same day, J crisis pre+post) may
  * legitimately occupy more.
  */
 export const CATEGORY_MAX_SLOTS: Record<EventCategoryId, number> = {
@@ -112,13 +129,20 @@ export const CATEGORY_MAX_SLOTS: Record<EventCategoryId, number> = {
   F: 3,
   G: 3,
   H: 1,
+  I: 1,
+  J: 2,
 };
 
 const STAKES_TO_CATEGORY: Record<string, EventCategoryId> = {
   board: "A", external: "A", investor: "A",
 };
 
-function categoryFor(title: string, stakesLevel?: string | null): EventCategoryId | null {
+function categoryFor(
+  title: string,
+  stakesLevel?: string | null,
+  explicitCategory?: EventCategoryId | null,
+): EventCategoryId | null {
+  if (explicitCategory) return explicitCategory;
   if (stakesLevel) {
     const hit = STAKES_TO_CATEGORY[stakesLevel.toLowerCase()];
     if (hit) return hit;
@@ -132,7 +156,7 @@ function categoryFor(title: string, stakesLevel?: string | null): EventCategoryI
   } catch (_e) {
     // fall through to the v1 dictionary
   }
-  const subtype = classifyEvent(title);
+  const subtype = legacyClassifyEvent(title);
   return subtype?.categoryId ?? null;
 }
 
@@ -140,8 +164,9 @@ export function protocolsForEvent(
   title: string,
   phase: Phase,
   stakesLevel?: string | null,
+  explicitCategory?: EventCategoryId | null,
 ): ProtocolCombo | null {
-  const id = categoryFor(title, stakesLevel);
+  const id = categoryFor(title, stakesLevel, explicitCategory);
   if (!id) return null;
   const ph = getPhasesForEvent(id)[phase];
   if (!ph) return null;
@@ -152,8 +177,9 @@ export function phaseForEvent(
   title: string,
   phase: Phase,
   stakesLevel?: string | null,
+  explicitCategory?: EventCategoryId | null,
 ): (EventPhase & { resolvedCombo: ProtocolCombo }) | null {
-  const id = categoryFor(title, stakesLevel);
+  const id = categoryFor(title, stakesLevel, explicitCategory);
   if (!id) return null;
   const ph = getPhasesForEvent(id)[phase];
   if (!ph) return null;

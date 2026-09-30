@@ -1,8 +1,8 @@
 // OWNERSHIP: coaching (subtype rows + keywords) + engineering (types).
-// Granular CEO event subtypes — the 30 canonical rows that power JIT lead
+// Granular CEO event subtypes — canonical rows that power JIT lead
 // times, mastery scenario routing, demand-dimension scoring and intervention
 // type per subtype. Each row references a category from ./event-categories.ts
-// via `categoryId` (= the §3 framework pillar A–H).
+// via `categoryId` (= the §3 framework pillar A–J).
 
 import type { EventCategoryId, InterventionType } from "./event-categories.ts";
 
@@ -123,7 +123,9 @@ export type EventGroup =
   | "E_leadership"
   | "F_operational"
   | "G_travel"
-  | "H_recovery";
+  | "H_recovery"
+  | "I_operations"
+  | "J_crisis";
 
 export type RegulationObjective = "PREPARE" | "PREVENT" | "PROTECT" | "RECOVER";
 
@@ -142,7 +144,7 @@ export interface EventType {
   /** Legacy group code preserved for backwards-compat with downstream maps. */
   group: EventGroup;
   /**
-   * Canonical category (A–H) from ./event-categories.ts. New name for what
+   * Canonical category (A–J) from ./event-categories.ts. New name for what
    * was `frameworkPillar` — both fields are populated for one release.
    */
   categoryId: EventCategoryId;
@@ -159,6 +161,10 @@ export interface EventType {
   jitLeadTimeMinutes?: number;
   /** Classification-only — no JIT, nudges or mastery (e.g. Networking). */
   classificationOnly?: boolean;
+  /** Optional demand overrides/extensions from A–J design */
+  arousal?: number;
+  switchCost?: number;
+  recoveryMinutes?: number;
   /**
    * Optional v2-only field. Substring tokens (lowercased) that, when present
    * in the title, disqualify a match on `keywords`. Honoured by
@@ -388,9 +394,9 @@ const ROWS: RawSubtype[] = [
   {
     id: "gov.crisis",
     label: "Crisis / Incident",
-    bucket: "Interpersonal High-Stakes",
-    categoryId: "D",
-    group: "F_operational",
+    bucket: "Crisis, Risk & Incidents",
+    categoryId: "J",
+    group: "J_crisis",
     primaryPillar: 4,
     secondaryPillar: 3,
     demandProfile: D(3, 3, 2, 2, 2, 3, 0, 2),
@@ -402,13 +408,13 @@ const ROWS: RawSubtype[] = [
     jitLeadTimeMinutes: 120,
   },
 
-  // ── Category B · Influence & Persuasion ──
+  // ── Category B · Pitches, Deals & Negotiations ──
   // v2 additive — competitive pitch (bake-off / RFP). Insert BEFORE inf.fundraising
   // so a "pitch to L'Oreal" is not routed to fundraising.
   {
     id: "inf.pitch_competitive",
     label: "Competitive pitch / RFP",
-    bucket: "Influence & Persuasion",
+    bucket: "Pitches, Deals & Negotiations",
     categoryId: "B",
     group: "B_investor",
     primaryPillar: 2,
@@ -431,7 +437,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "inf.fundraising",
     label: "Fundraising / Pitch",
-    bucket: "Influence & Persuasion",
+    bucket: "Pitches, Deals & Negotiations",
     categoryId: "B",
     group: "B_investor",
     primaryPillar: 2,
@@ -453,7 +459,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "inf.negotiation",
     label: "Negotiation",
-    bucket: "Influence & Persuasion",
+    bucket: "Pitches, Deals & Negotiations",
     categoryId: "B",
     group: "E_leadership",
     primaryPillar: 2,
@@ -469,7 +475,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "inf.client_presentation",
     label: "Client / customer presentation",
-    bucket: "Influence & Persuasion",
+    bucket: "Pitches, Deals & Negotiations",
     categoryId: "B",
     group: "D_visibility",
     primaryPillar: 2,
@@ -514,13 +520,13 @@ const ROWS: RawSubtype[] = [
     jitLeadTimeMinutes: 480,
   },
 
-  // ── Category C · Visibility & Communication ──
+  // ── Category C · Public Speaking & Media ──
   // Spec C.roundtable — user is SPEAKING / PRESENTING at a roundtable.
   // Must precede str.community, which owns the "member of" case.
   {
     id: "vis.roundtable",
     label: "Roundtable (speaking)",
-    bucket: "Visibility & Communication",
+    bucket: "Public Speaking & Media",
     categoryId: "C",
     group: "D_visibility",
     primaryPillar: 2,
@@ -550,7 +556,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "vis.stakeholder_comm",
     label: "Stakeholder communication",
-    bucket: "Visibility & Communication",
+    bucket: "Public Speaking & Media",
     categoryId: "C",
     group: "D_visibility",
     primaryPillar: 2,
@@ -576,7 +582,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "vis.media",
     label: "Media / Press / Podcast",
-    bucket: "Visibility & Communication",
+    bucket: "Public Speaking & Media",
     categoryId: "C",
     group: "D_visibility",
     primaryPillar: 2,
@@ -610,7 +616,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "vis.all_hands",
     label: "All-hands / Town hall",
-    bucket: "Visibility & Communication",
+    bucket: "Public Speaking & Media",
     categoryId: "C",
     group: "D_visibility",
     primaryPillar: 2,
@@ -629,11 +635,11 @@ const ROWS: RawSubtype[] = [
     masteryModules: ["regulate", "align"],
     jitLeadTimeMinutes: 240,
   },
-  // ── Category D · Interpersonal High-Stakes ──
+  // ── Category D · People & Team Dynamics ──
   {
     id: "lead.executive_1on1",
     label: "Executive 1:1",
-    bucket: "Interpersonal High-Stakes",
+    bucket: "People & Team Dynamics",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -649,7 +655,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.leadership_sync",
     label: "Leadership / Exec team sync",
-    bucket: "Interpersonal High-Stakes",
+    bucket: "People & Team Dynamics",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -677,7 +683,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.performance_review",
     label: "Performance review",
-    bucket: "Interpersonal High-Stakes",
+    bucket: "People & Team Dynamics",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -701,7 +707,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.difficult_conversation",
     label: "Difficult conversation / Escalation",
-    bucket: "Interpersonal High-Stakes",
+    bucket: "People & Team Dynamics",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -740,7 +746,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.layoff",
     label: "Layoff / Restructure",
-    bucket: "Interpersonal High-Stakes",
+    bucket: "People & Team Dynamics",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -765,7 +771,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.hiring_interview",
     label: "Hiring interview (candidate)",
-    bucket: "Interpersonal High-Stakes",
+    bucket: "People & Team Dynamics",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -787,7 +793,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "lead.hiring_committee",
     label: "Job interview / Hiring committee",
-    bucket: "Interpersonal High-Stakes",
+    bucket: "People & Team Dynamics",
     categoryId: "D",
     group: "E_leadership",
     primaryPillar: 3,
@@ -810,13 +816,13 @@ const ROWS: RawSubtype[] = [
     jitLeadTimeMinutes: 240,
   },
 
-  // ── Category E · Deep Work & Strategy ──
+  // ── Category E · Strategic Thinking & Decision Making ──
   // v2 additive rows. Insert BEFORE existing E rows AND before conf.speaking so
   // "webinar"/"masterclass" etc. do not fall through to F.speaking or B.pitch.
   {
     id: "str.learning",
     label: "Learning / Passive attendee",
-    bucket: "Deep Work & Strategy",
+    bucket: "Strategic Thinking & Decision Making",
     categoryId: "E",
     group: "C_strategic",
     primaryPillar: 1,
@@ -864,7 +870,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "str.community",
     label: "Community / Member group",
-    bucket: "Deep Work & Strategy",
+    bucket: "Strategic Thinking & Decision Making",
     categoryId: "E",
     group: "C_strategic",
     primaryPillar: 3,
@@ -893,7 +899,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "str.review",
     label: "Review (BP / product / design / sprint)",
-    bucket: "Deep Work & Strategy",
+    bucket: "Strategic Thinking & Decision Making",
     categoryId: "E",
     group: "C_strategic",
     primaryPillar: 1,
@@ -924,9 +930,9 @@ const ROWS: RawSubtype[] = [
   {
     id: "str.compliance",
     label: "Compliance / Legal / Filing",
-    bucket: "Deep Work & Strategy",
-    categoryId: "E",
-    group: "C_strategic",
+    bucket: "Operations & Execution",
+    categoryId: "I",
+    group: "I_operations",
     primaryPillar: 1,
     demandProfile: D(2, 0, 0, 1, 1, 1, 0, 1),
     timingMatrix: { pre: true, during: false, post: false },
@@ -974,7 +980,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "str.deep_work",
     label: "Deep work block",
-    bucket: "Deep Work & Strategy",
+    bucket: "Strategic Thinking & Decision Making",
     categoryId: "E",
     group: "C_strategic",
     primaryPillar: 1,
@@ -1003,9 +1009,9 @@ const ROWS: RawSubtype[] = [
   {
     id: "str.product_launch",
     label: "Product launch / Go-live",
-    bucket: "Deep Work & Strategy",
-    categoryId: "E",
-    group: "F_operational",
+    bucket: "Operations & Execution",
+    categoryId: "I",
+    group: "I_operations",
     primaryPillar: 4,
     secondaryPillar: 2,
     demandProfile: D(2, 2, 2, 1, 2, 3, 0, 2),
@@ -1021,7 +1027,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "conf.keynote",
     label: "Keynote",
-    bucket: "Visibility & Communication",
+    bucket: "Public Speaking & Media",
     categoryId: "C",
     group: "D_visibility",
     primaryPillar: 2,
@@ -1038,7 +1044,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "conf.speaking",
     label: "Conference speaking / Panel",
-    bucket: "Visibility & Communication",
+    bucket: "Public Speaking & Media",
     categoryId: "C",
     group: "D_visibility",
     primaryPillar: 2,
@@ -1305,13 +1311,13 @@ const ROWS: RawSubtype[] = [
     classificationOnly: true,
   },
 
-  // ── Category H · Daily Rhythm & Baseline ──
+  // ── Category H · Personal Time & Recovery ──
   // v2 additive — insert BEFORE rhy.catchup / rhy.pto so more specific rows win
   // when keywords overlap (e.g. rhy.pto has 'holiday' — rhy.holiday must precede it).
   {
     id: "rhy.holiday",
     label: "Public / bank holiday",
-    bucket: "Daily Rhythm & Baseline",
+    bucket: "Personal Time & Recovery",
     categoryId: "H",
     group: "H_recovery",
     primaryPillar: 5,
@@ -1338,7 +1344,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "rhy.wellness_fitness",
     label: "Wellness — fitness",
-    bucket: "Daily Rhythm & Baseline",
+    bucket: "Personal Time & Recovery",
     categoryId: "H",
     group: "H_recovery",
     primaryPillar: 5,
@@ -1361,7 +1367,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "rhy.wellness_self_care",
     label: "Wellness — self care",
-    bucket: "Daily Rhythm & Baseline",
+    bucket: "Personal Time & Recovery",
     categoryId: "H",
     group: "H_recovery",
     primaryPillar: 5,
@@ -1388,7 +1394,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "rhy.wellness_health_check",
     label: "Wellness — health check",
-    bucket: "Daily Rhythm & Baseline",
+    bucket: "Personal Time & Recovery",
     categoryId: "H",
     group: "H_recovery",
     primaryPillar: 5,
@@ -1410,7 +1416,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "rhy.wellness_medical",
     label: "Wellness — medical appointment",
-    bucket: "Daily Rhythm & Baseline",
+    bucket: "Personal Time & Recovery",
     categoryId: "H",
     group: "H_recovery",
     primaryPillar: 5,
@@ -1432,7 +1438,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "rhy.social",
     label: "Personal social",
-    bucket: "Daily Rhythm & Baseline",
+    bucket: "Personal Time & Recovery",
     categoryId: "H",
     group: "H_recovery",
     primaryPillar: 5,
@@ -1455,7 +1461,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "rhy.family",
     label: "Family / Personal",
-    bucket: "Daily Rhythm & Baseline",
+    bucket: "Personal Time & Recovery",
     categoryId: "H",
     group: "H_recovery",
     primaryPillar: 5,
@@ -1478,7 +1484,7 @@ const ROWS: RawSubtype[] = [
   {
     id: "rhy.recreation",
     label: "Recreation / Culture",
-    bucket: "Daily Rhythm & Baseline",
+    bucket: "Personal Time & Recovery",
     categoryId: "H",
     group: "H_recovery",
     primaryPillar: 5,
@@ -1505,11 +1511,35 @@ const ROWS: RawSubtype[] = [
     classificationOnly: true,
   },
   {
+    id: "rhy.pto",
+    label: "PTO / Time off",
+    bucket: "Personal Time & Recovery",
+    categoryId: "H",
+    group: "H_recovery",
+    primaryPillar: 5,
+    demandProfile: D(0, 0, 0, 0, 0, 0, 0, 1),
+    timingMatrix: { pre: false, during: false, post: false },
+    regulationObjective: "RECOVER",
+    interventionType: "Pause",
+    keywords: [
+      "out of office",
+      "ooo",
+      "annual leave",
+      "holiday",
+      "vacation",
+      "pto",
+      "day off",
+      "away",
+    ],
+  },
+
+  // ── Category I · Operations & Execution ──
+  {
     id: "rhy.catchup",
     label: "Routine sync / Catch-up",
-    bucket: "Deep Work & Strategy",
-    categoryId: "E",
-    group: "F_operational",
+    bucket: "Operations & Execution",
+    categoryId: "I",
+    group: "I_operations",
     primaryPillar: 4,
     demandProfile: D(1, 1, 0, 0, 2, 1, 0, 0),
     timingMatrix: { pre: false, during: false, post: false },
@@ -1534,26 +1564,129 @@ const ROWS: RawSubtype[] = [
     ],
   },
   {
-    id: "rhy.pto",
-    label: "PTO / Time off",
-    bucket: "Daily Rhythm & Baseline",
-    categoryId: "H",
-    group: "H_recovery",
-    primaryPillar: 5,
-    demandProfile: D(0, 0, 0, 0, 0, 0, 0, 1),
+    id: "ops.operating_review",
+    label: "Operating review / KPI review",
+    bucket: "Operations & Execution",
+    categoryId: "I",
+    group: "I_operations",
+    primaryPillar: 4,
+    secondaryPillar: 1,
+    demandProfile: D(2, 1, 1, 1, 2, 2, 0, 1),
+    timingMatrix: { pre: true, during: false, post: true },
+    regulationObjective: "PREPARE",
+    interventionType: "Reenergise",
+    keywords: [
+      "operating review",
+      "operations review",
+      "kpi review",
+      "business review",
+      "weekly business review",
+      "wbr",
+      "metrics review",
+      "dashboard review",
+      "performance dashboard",
+    ],
+    masteryModules: ["align", "prepare"],
+    jitLeadTimeMinutes: 240,
+  },
+  {
+    id: "ops.admin",
+    label: "Admin / Approvals / Logistics",
+    bucket: "Operations & Execution",
+    categoryId: "I",
+    group: "I_operations",
+    primaryPillar: 4,
+    demandProfile: D(1, 0, 0, 0, 0, 1, 0, 0),
     timingMatrix: { pre: false, during: false, post: false },
-    regulationObjective: "RECOVER",
+    regulationObjective: "PROTECT",
     interventionType: "Pause",
     keywords: [
-      "out of office",
-      "ooo",
-      "annual leave",
-      "holiday",
-      "vacation",
-      "pto",
-      "day off",
-      "away",
+      "admin block",
+      "inbox zero",
+      "email triage",
+      "approvals",
+      "expense review",
+      "sign-off",
+      "logistics",
+      "scheduling block",
     ],
+    classificationOnly: true,
+  },
+
+  // ── Category J · Crisis, Risk & Incidents ──
+  {
+    id: "risk.incident_review",
+    label: "Post-incident review / Post-mortem",
+    bucket: "Crisis, Risk & Incidents",
+    categoryId: "J",
+    group: "J_crisis",
+    primaryPillar: 4,
+    secondaryPillar: 1,
+    demandProfile: D(3, 2, 1, 2, 2, 2, 0, 1),
+    timingMatrix: { pre: true, during: false, post: true },
+    regulationObjective: "PREPARE",
+    interventionType: "Pause",
+    keywords: [
+      "post-mortem",
+      "postmortem",
+      "incident review",
+      "rca review",
+      "root cause analysis",
+      "sev1 review",
+      "p1 review",
+      "outage review",
+    ],
+    masteryModules: ["regulate", "prepare"],
+    jitLeadTimeMinutes: 240,
+  },
+  {
+    id: "risk.legal_regulatory",
+    label: "Litigation / Regulatory investigation",
+    bucket: "Crisis, Risk & Incidents",
+    categoryId: "J",
+    group: "J_crisis",
+    primaryPillar: 1,
+    secondaryPillar: 3,
+    demandProfile: D(3, 3, 2, 3, 2, 3, 0, 2),
+    timingMatrix: { pre: true, during: false, post: true, postMandatory: true },
+    regulationObjective: "PROTECT",
+    interventionType: "Pause",
+    keywords: [
+      "deposition",
+      "court hearing",
+      "litigation",
+      "outside counsel escalation",
+      "regulatory investigation",
+      "sec inquiry",
+      "doj inquiry",
+      "subpoena",
+    ],
+    masteryModules: ["regulate", "align"],
+    jitLeadTimeMinutes: 1440,
+  },
+  {
+    id: "risk.reputation",
+    label: "Reputation / Press crisis",
+    bucket: "Crisis, Risk & Incidents",
+    categoryId: "J",
+    group: "J_crisis",
+    primaryPillar: 2,
+    secondaryPillar: 3,
+    demandProfile: D(3, 3, 3, 3, 2, 3, 0, 3),
+    timingMatrix: { pre: true, during: true, post: true, postMandatory: true },
+    regulationObjective: "PROTECT",
+    interventionType: "Pause",
+    keywords: [
+      "pr crisis",
+      "press crisis",
+      "crisis comms",
+      "media scandal",
+      "reputation crisis",
+      "whistleblower",
+      "controversy statement",
+    ],
+    masteryModules: ["regulate", "prepare"],
+    jitLeadTimeMinutes: 120,
   },
 ];
 
@@ -1616,4 +1749,9 @@ export const EVENT_TYPE_TO_SCENARIO_ID: Record<string, string | null> = {
   "rhy.social": null,
   "rhy.family": null,
   "rhy.recreation": null,
+  "ops.operating_review": "pre-strategic-planning",
+  "ops.admin": null,
+  "risk.incident_review": "pre-crisis-response",
+  "risk.legal_regulatory": "pre-negotiations",
+  "risk.reputation": "pre-crisis-response",
 };

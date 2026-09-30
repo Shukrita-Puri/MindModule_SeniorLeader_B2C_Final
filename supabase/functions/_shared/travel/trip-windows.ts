@@ -19,6 +19,7 @@
  */
 
 import { detectTravelFromTitle } from "../events/travel-patterns.ts";
+import { resolveEvent } from "../events/resolve-event-category.ts";
 
 export type TripEvidenceKind = "flight" | "stay" | "offsite" | "trip";
 export type TripSource = "calendar" | "location" | "manual";
@@ -51,24 +52,35 @@ const STAY_PATTERN =
 const OFFSITE_PATTERN =
   /\b(off[-\s]?site|onsite visit|conference|summit|retreat|expo|convention|roadshow)\b/i;
 
-/** Which kind of trip evidence a title carries, if any. */
+/** Which kind of trip evidence a title carries, if any. Reads from Spine A–J. */
 export function classifyTripEvidence(
-  title: string | null | undefined,
+  titleOrEvent: string | TripEvidenceEvent | null | undefined,
 ): TripEvidenceKind | null {
+  if (!titleOrEvent) return null;
+  const title = typeof titleOrEvent === "string" ? titleOrEvent.trim() : (titleOrEvent.title ?? "").trim();
   if (!title) return null;
-  const t = title.trim();
-  if (!t) return null;
 
-  const travel = detectTravelFromTitle(t);
-  if (travel.matched) {
-    if (travel.reason === "flight_number" || travel.reason === "route_code") {
-      return "flight";
-    }
-    if (travel.reason === "travel_verb") return "trip";
+  // 1. Specific evidence checks (stays, offsites, routes, flight numbers, explicit flight keyword)
+  const travel = detectTravelFromTitle(title);
+  if (travel.matched && (travel.reason === "flight_number" || travel.reason === "route_code")) {
+    return "flight";
   }
-  if (/\bflight\b/i.test(t)) return "flight";
-  if (STAY_PATTERN.test(t)) return "stay";
-  if (OFFSITE_PATTERN.test(t)) return "offsite";
+  if (/\bflight\b/i.test(title)) return "flight";
+  if (STAY_PATTERN.test(title)) return "stay";
+  if (OFFSITE_PATTERN.test(title)) return "offsite";
+  if (travel.matched && travel.reason === "travel_verb") return "trip";
+
+  // 2. Canonical Spine classification (Spec §11)
+  const resolved = resolveEvent(titleOrEvent);
+  if (resolved.categoryId === "G" || resolved.stamp.dimensions.travelRelated) {
+    const sub = resolved.subtype?.id;
+    if (sub === "trv.accommodation") return "stay";
+    if (sub === "trv.flight" || sub === "trv.long_haul") return "flight";
+    return "trip";
+  }
+  if (resolved.categoryId === "F") {
+    return "offsite";
+  }
   return null;
 }
 

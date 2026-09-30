@@ -370,6 +370,88 @@ const BANK: Record<EventCategoryId, RoleBank> = {
       post: ["Consistency on the quiet days is what carries the hard ones."],
     },
   },
+  // I — Operations & Execution
+  I: {
+    Prepare: {
+      pre: [
+        "Pace your energy across execution blocks rather than sprinting early.",
+        "Set clear priorities before entering back-to-back operations.",
+      ],
+      during: [
+        "Maintain focus on highest leverage tasks while switching contexts.",
+        "Keep decision fatigue low by sticking to clear operating protocols.",
+      ],
+      post: [
+        "Reset after heavy execution so switching costs don't bleed forward.",
+        "Close out operational items cleanly before transitioning focus.",
+      ],
+    },
+    Prevent: {
+      pre: [
+        "Rapid context switching drains stamina before you notice it.",
+        "Back-to-back reviews quietly deplete clarity if unpaced.",
+      ],
+      during: [
+        "Notice reactive lock and pause to reset perspective.",
+        "Don't let operational tempo dictate your nervous system state.",
+      ],
+      post: [
+        "Discharge operational friction now so fatigue doesn't accumulate.",
+        "A deliberate reset prevents afternoon slump after execution sprints.",
+      ],
+    },
+    Protect: {
+      pre: ["Preserve cognitive reserves for when execution demand spikes."],
+      during: ["Hold your focus steady through incoming noise."],
+      post: ["Step away cleanly once the operating rhythm concludes."],
+    },
+    Build: {
+      pre: ["Execution blocks are where stamina habits are forged."],
+      during: ["Build calm pacing into high-throughput hours."],
+      post: ["Every clean post-execution reset compounds endurance."],
+    },
+  },
+  // J — Crisis, Risk & Incidents
+  J: {
+    Prepare: {
+      pre: [
+        "Stabilise your nervous system first so high-pressure decisions stay sound.",
+        "A calm centre is your primary leverage when stakes are volatile.",
+      ],
+      during: [
+        "Slow your breathing deliberately to widen cognitive aperture under scrutiny.",
+        "Hold the line on measured judgement even as pressure mounts.",
+      ],
+      post: [
+        "Decompress acute nervous-system arousal before tackling the next fire.",
+        "Discharge adrenaline carryover so crisis tension doesn't become baseline.",
+      ],
+    },
+    Prevent: {
+      pre: [
+        "Acute panic narrows thinking right when strategic clarity is needed most.",
+        "Entering a crisis on high adrenaline guarantees reactive decisions.",
+      ],
+      during: [
+        "Urgency invites emotional hijack; anchor your physical state first.",
+        "Do not let ambient room anxiety accelerate your response tempo.",
+      ],
+      post: [
+        "Post-incident crash is biological; recover deliberately to protect sleep.",
+        "Carrying incident residue forward risks compounding the crisis tomorrow.",
+      ],
+    },
+    Protect: {
+      pre: ["Guard your core equilibrium before stepping into the war room."],
+      during: ["Protect your focus from ambient panic and conflicting noise."],
+      post: ["Protect your recovery window after the critical escalation."],
+    },
+    Build: {
+      pre: ["Crisis moments test and build emotional resilience under fire."],
+      during: ["Composure under acute risk is the ultimate executive anchor."],
+      post: ["Every disciplined post-crisis reset accelerates future recovery."],
+    },
+  },
 };
 
 /** Role fallback order — always resolves to a populated cell. */

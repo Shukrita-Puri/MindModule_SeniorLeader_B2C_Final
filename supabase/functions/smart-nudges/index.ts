@@ -559,11 +559,9 @@ function mergeCalendarRows(rows: unknown[]): CalendarEvent[] {
       attendees_count: event.attendeesCount ?? 0,
       is_all_day: raw.is_all_day === true || raw.isAllDay === true ||
         spansFullDay,
-      source_calendar: (Array.isArray((event as any).sourceCalendars)
-        ? (event as any).sourceCalendars[0] ?? null
-        : null) ?? (typeof raw.calendar_name === "string"
-          ? raw.calendar_name
-          : null),
+      source_calendar: (Array.isArray((event as any).sourceCalendars) && (event as any).sourceCalendars.length > 0)
+        ? (event as any).sourceCalendars[0]
+        : (typeof raw.calendar_name === "string" ? raw.calendar_name : null),
     };
   });
 }

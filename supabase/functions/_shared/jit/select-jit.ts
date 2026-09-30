@@ -37,6 +37,8 @@ const CATEGORY_BASE: Record<EventCategoryId, number> = {
   G: 12, // Travel (preparation window, not a performance moment)
   E: 10, // Deep work (cognitively heavy, low external stakes)
   H: 5,  // Daily rhythm / baseline
+  I: 8,  // Operations & Execution
+  J: 42, // Crisis, Risk & Incidents
 };
 
 /** Cap on D after `interpersonalStakesBoost` so it can't stack past A. */
@@ -98,20 +100,39 @@ function domainOf(email: string | null | undefined): string {
 
 export function classifyInterview(args: {
   title: string;
-  attendeesCount: number;
+  attendeesCount?: number;
   subtypeId?: string | null;
   categoryId?: EventCategoryId | null;
   organizerEmail?: string | null;
   attendeeDomains?: string[];
   userDomain?: string | null;
   tags?: string[];
+  relationship?: string | null;
+  direction?: string | null;
 }): InterviewKind {
   const { title } = args;
+
+  // 1. Direct Spine Contract / Subtype classification (highest confidence)
+  if (
+    args.subtypeId === 'vis.media_interview' ||
+    args.subtypeId === 'vis.press' ||
+    args.subtypeId === 'media-publication' ||
+    (args.categoryId === 'C' && INTERVIEW_RE.test(title))
+  ) {
+    return 'media';
+  }
+  if (args.direction === 'reporting_up' || args.direction === 'user_selling') {
+    if (INTERVIEW_RE.test(title) || args.subtypeId?.startsWith('lead.')) {
+      return 'candidate';
+    }
+  }
+  if (args.subtypeId === 'lead.hiring_interview' || args.subtypeId === 'lead.hiring_committee' || args.subtypeId === 'hiring-loop') {
+    return 'hiring';
+  }
+
   if (!INTERVIEW_RE.test(title)) return 'none';
 
   const tagsNormPre = (args.tags ?? []).map((t) => String(t).toLowerCase().trim());
-  // Title/tag-driven candidate detection runs BEFORE the attendee-count gate
-  // because many calendars sync interviews with 0 attendees populated.
   if (
     tagsNormPre.includes('my-interview') ||
     tagsNormPre.includes('candidate') ||
@@ -119,26 +140,9 @@ export function classifyInterview(args: {
   ) {
     return 'candidate';
   }
-  // Bare "Interview" titles with unknown/placeholder attendee counts are
-  // still real events — don't gate them out. Fall through to 'ambiguous' so
-  // the event keeps its category (D) + pre/post arcs and receives the
-  // ambiguous interview boost. Only skip this early-return when the title
-  // carries strong media/hiring signals that the branches below can resolve
-  // more specifically.
-  const hasStrongSignals =
-    args.subtypeId === 'media-publication' ||
-    args.categoryId === 'C' ||
-    MEDIA_INTERVIEW_RE.test(title) ||
-    HIRING_KEYWORD_RE.test(title) ||
-    args.subtypeId === 'hiring-loop';
-  if ((args.attendeesCount ?? 0) < 2 && !hasStrongSignals) return 'ambiguous';
 
-  // Media — broadcast/reputational. Highest-confidence first.
-  if (
-    args.subtypeId === 'media-publication' ||
-    args.categoryId === 'C' ||
-    MEDIA_INTERVIEW_RE.test(title)
-  ) {
+  // Media keyword signals
+  if (MEDIA_INTERVIEW_RE.test(title)) {
     return 'media';
   }
 
@@ -151,7 +155,6 @@ export function classifyInterview(args: {
 
   if (own) {
     if (orgDom && orgDom !== own) {
-      // External organizer running an interview → user is candidate.
       return 'candidate';
     }
     if (att.length >= 2) {
@@ -163,9 +166,6 @@ export function classifyInterview(args: {
 
   // Hiring keyword signals (panel side).
   if (HIRING_KEYWORD_RE.test(title)) return 'hiring';
-
-  // Hiring loop subtype.
-  if (args.subtypeId === 'hiring-loop') return 'hiring';
 
   return 'ambiguous';
 }
@@ -182,15 +182,17 @@ function interviewBoost(kind: InterviewKind): number {
 
 /* ─────────────────────────────────────────────────────────────────────
  * §4 — 1:1 seniority differentiation. Only fires when categoryId === 'D'
- * AND attendeesCount === 1. Boss/board lifts; report drops below MIN.
- * `unknown` = no penalty so the LinkedIn resolver can fill in later.
+ * or format === '1:1'. Boss/board lifts; report drops below MIN.
  * ─────────────────────────────────────────────────────────────────── */
 function oneOnOneSeniorityAdjust(
   categoryId: EventCategoryId,
   role: ResolvedRole,
-  attendeesCount: number | undefined,
+  attendeesCount?: number | undefined,
+  subtypeId?: string | null,
+  format?: string | null,
 ): number {
-  if (categoryId !== 'D' || (attendeesCount ?? 0) !== 1) return 0;
+  const is1on1 = (attendeesCount === 1) || subtypeId === 'lead.executive_1on1' || format === '1:1';
+  if (categoryId !== 'D' && !is1on1) return 0;
   switch (role) {
     case 'boss':
     case 'board_member': return 10;
@@ -216,8 +218,14 @@ function isCrisisEvent(args: {
   startMs: number;
   nowMs: number;
   categoryId: EventCategoryId | null;
-  attendeesCount: number | undefined;
+  subtypeId?: string | null;
+  stakes?: string | null;
+  attendeesCount?: number | undefined;
 }): { crisis: boolean; reasonDetail?: string } {
+  // Spine Category J is explicitly a crisis event
+  if (args.categoryId === 'J' || args.stakes === 'critical') {
+    return { crisis: true, reasonDetail: 'spine_category_j' };
+  }
   const tags = args.tags.map((t) => String(t).toLowerCase().trim());
   if (tags.includes('crisis') || tags.includes('urgent')) {
     return { crisis: true, reasonDetail: 'sovereign_tag' };
@@ -229,8 +237,7 @@ function isCrisisEvent(args: {
   const FOUR_HOURS = 4 * 3600_000;
   if (
     args.createdAt &&
-    args.categoryId && ['A','B','C','D'].includes(args.categoryId) &&
-    (args.attendeesCount ?? 0) >= 2
+    args.categoryId && ['A','B','C','D','J'].includes(args.categoryId)
   ) {
     const createdMs = new Date(args.createdAt).getTime();
     if (isFinite(createdMs) && args.startMs - createdMs < FOUR_HOURS && leadMs > 0) {
@@ -254,14 +261,16 @@ function maybeReRouteSpeakingToC(categoryId: EventCategoryId, title: string): Ev
 }
 
 /**
- * Personal-block detector. Titles like "Chief AI Thursday connects",
- * "Daily sync", "1:1", "Standup", "Catchup" with **zero attendees** are
- * almost always solo focus blocks the user named like a meeting — they
- * should not collect recurring-pattern tactical bonus that would lift
- * them above real stakeholder events.
+ * Personal-block detector.
  */
 const PERSONAL_BLOCK_RE = /\b(connects?|sync|standups?|catch[- ]?ups?|check[- ]?ins?|1:1|one[- ]on[- ]one|focus|deep[- ]?work)\b/i;
-function isPersonalBlock(title: string, attendeesCount: number | undefined): boolean {
+function isPersonalBlock(
+  title: string,
+  attendeesCount?: number | undefined,
+  workContext?: string | null,
+  categoryId?: EventCategoryId | null,
+): boolean {
+  if (workContext === 'personal' || categoryId === 'H') return true;
   return (attendeesCount ?? 0) === 0 && PERSONAL_BLOCK_RE.test(title);
 }
 
@@ -419,7 +428,7 @@ export function selectJitCandidates(
       excluded.push({ eventId: ev.id, title, reason: 'personal_noise' });
       continue;
     }
-    const enriched = enrichEvent({ title });
+    const enriched = enrichEvent(ev);
     if (!enriched.categoryId) {
       excluded.push({ eventId: ev.id, title, reason: 'no_category' });
       continue;
@@ -428,6 +437,7 @@ export function selectJitCandidates(
     // is more accurately C (visibility).
     const categoryId = maybeReRouteSpeakingToC(enriched.categoryId, title);
     const subtypeId = enriched.subtype?.id ?? null;
+    const stampDimensions = enriched.stamp?.dimensions;
     const startMs = new Date(ev.start_time).getTime();
     if (!isFinite(startMs)) {
       excluded.push({ eventId: ev.id, title, reason: 'bad_start_time' });
@@ -464,6 +474,7 @@ export function selectJitCandidates(
     // Dominant role for downstream consumers — prefer sovereign (user voice wins).
     const role: ResolvedRole = sovereignDom?.signal.role
       ?? inferredDom?.signal.role
+      ?? (stampDimensions?.relationship as ResolvedRole)
       ?? 'unknown';
     const effectiveRel = relationship_inferred + relationship_sovereign;
     let rawCategoryBase = CATEGORY_BASE[categoryId];
@@ -471,7 +482,13 @@ export function selectJitCandidates(
     if (interpersonalBoost > 0) {
       rawCategoryBase = Math.min(D_BOOSTED_CAP, rawCategoryBase + interpersonalBoost);
     }
-    const seniorityAdjust = oneOnOneSeniorityAdjust(categoryId, role, ev.attendeesCount);
+    const seniorityAdjust = oneOnOneSeniorityAdjust(
+      categoryId,
+      role,
+      ev.attendeesCount,
+      subtypeId,
+      stampDimensions?.format ?? null,
+    );
     rawCategoryBase = rawCategoryBase + seniorityAdjust;
     const protectMul = applyProtectGoalMultiplier(categoryId, ctx.goals?.protectGoals);
     const categoryBase = Math.round(rawCategoryBase * protectMul);
@@ -485,12 +502,10 @@ export function selectJitCandidates(
       attendeeDomains: ev.attendeeDomains,
       userDomain: ev.userDomain,
       tags: ev.tags,
+      relationship: stampDimensions?.relationship ?? null,
+      direction: stampDimensions?.direction ?? null,
     });
     // §7 situationalBoost replaces the flat interview boost in the formula.
-    // Gated to attendeesCount ≥ 2 per spec, with an explicit exemption for
-    // title-driven `candidate` interviews ("Interview with <CEO/founder>")
-    // and sovereign-tagged interviews — both establish enough signal on
-    // their own that the attendee gate would suppress legitimate priorities.
     const titleDrivenCandidate =
       interviewKind === 'candidate' &&
       (MY_INTERVIEW_TITLE_RE.test(title) ||
@@ -510,7 +525,7 @@ export function selectJitCandidates(
     // Personal blocks (zero-attendee titles like "Chief AI Thursday connects",
     // "Daily sync") must not borrow recurring-pattern bonus from real
     // stakeholder events of the same surface category.
-    const patternScore = isPersonalBlock(title, ev.attendeesCount) ? 0 : rawPatternScore;
+    const patternScore = isPersonalBlock(title, ev.attendeesCount, stampDimensions?.workContext, categoryId) ? 0 : rawPatternScore;
     const priorityTag = userPriorityTagBoost(ev.tags);
     const skip = skipPenaltyFor(bucket, ctx.skipCountsByBucket);
     const follow = followThroughBoost(bucket, ctx.followThroughByBucket);
@@ -578,6 +593,8 @@ export function selectJitCandidates(
       startMs,
       nowMs,
       categoryId,
+      subtypeId,
+      stakes: stampDimensions?.stakes ?? null,
       attendeesCount: ev.attendeesCount,
     });
     if (crisis.crisis) {

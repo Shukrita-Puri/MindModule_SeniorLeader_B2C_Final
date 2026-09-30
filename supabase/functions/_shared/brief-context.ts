@@ -427,7 +427,7 @@ export interface RuleContext {
     startsAtMinutesFromNow?: number;
     endsAtMinutesFromNow?: number;
     /** §3 category from the canonical event taxonomy (enrichEvent.categoryId). */
-    categoryId?: "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | null;
+    categoryId?: "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | null;
     /** True when the event title classifies as interpersonal (1:1, review,
      *  difficult conversation, layoff, HR, conflict). Set upstream by the
      *  event classifier — never inline-detect from title in a rule. */

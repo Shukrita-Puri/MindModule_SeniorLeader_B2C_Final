@@ -203,6 +203,8 @@ const EVENT_TYPE_ALIASES: Record<EventCategoryId, string[]> = {
   F: ["conference", "keynote", "panel", "event"],
   G: ["flight", "travel", "trip", "transit"],
   H: ["routine", "day", "check-in"],
+  I: ["sync", "review", "ops", "operations", "standup", "sprint", "admin", "filing"],
+  J: ["crisis", "incident", "escalation", "emergency", "investigation", "legal"],
 };
 
 const ANCHOR_STOPWORDS = new Set([

@@ -2,8 +2,8 @@ import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.t
 import { EVENT_CATEGORIES, FRAMEWORK_PILLARS, getFrameworkPillarProtocol } from "./event-categories.ts";
 import { classifyEvent } from "./event-classifier.ts";
 
-Deno.test("EVENT_CATEGORIES covers all eight pillars A–H", () => {
-  assertEquals(Object.keys(EVENT_CATEGORIES).sort().join(""), "ABCDEFGH");
+Deno.test("EVENT_CATEGORIES covers all ten pillars A–J", () => {
+  assertEquals(Object.keys(EVENT_CATEGORIES).sort().join(""), "ABCDEFGHIJ");
 });
 
 Deno.test("every category has user-friendly name, focus, and protocol contract", () => {
@@ -24,6 +24,8 @@ Deno.test("selfRegulationFocus carries doc-anchor phrases per pillar", () => {
   assert(EVENT_CATEGORIES.F.selfRegulationFocus.toLowerCase().includes("progressive daily recovery"));
   assert(EVENT_CATEGORIES.G.selfRegulationFocus.toLowerCase().includes("circadian"));
   assert(EVENT_CATEGORIES.H.selfRegulationFocus.toLowerCase().includes("habit"));
+  assert(EVENT_CATEGORIES.I.selfRegulationFocus.toLowerCase().includes("switching cost") || EVENT_CATEGORIES.I.selfRegulationFocus.toLowerCase().includes("pacing"));
+  assert(EVENT_CATEGORIES.J.selfRegulationFocus.toLowerCase().includes("acute nervous-system regulation") || EVENT_CATEGORIES.J.selfRegulationFocus.toLowerCase().includes("panic"));
 });
 
 Deno.test("FRAMEWORK_PILLARS alias mirrors EVENT_CATEGORIES", () => {
@@ -45,7 +47,8 @@ Deno.test("classifyEvent → categoryId maps canonical titles to categories", ()
   assertEquals(classifyEvent("Industry conference")?.categoryId, "F");
   assertEquals(classifyEvent("Deep work block")?.categoryId, "E");
   assertEquals(classifyEvent("Flight LHR to JFK")?.categoryId, "G");
-  assertEquals(classifyEvent("Weekly team sync")?.categoryId, "E");
+  assertEquals(classifyEvent("Weekly team sync")?.categoryId, "I");
+  assertEquals(classifyEvent("Crisis war room")?.categoryId, "J");
 });
 
 Deno.test("classifyEvent returns null on unknown title", () => {

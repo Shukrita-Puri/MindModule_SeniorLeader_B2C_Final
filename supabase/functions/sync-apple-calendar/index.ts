@@ -29,16 +29,6 @@ async function verifyAuth0Token(authHeader: string | null): Promise<string> {
   return info.sub;
 }
 
-const LOGISTIC_KEYWORDS = [
-  'station', 'bus', 'train', 'flight', 'airport', 'departure', 'arrival',
-  'boarding', 'layover', 'transit', 'coach station', 'platform', 'taxi', 'uber', 'cab',
-  'delivery', 'pick up', 'dry cleaning', 'groceries', 'pharmacy', 'haircut',
-  'car service', 'mot', 'oil change', 'dentist', 'optician',
-  'reminder', 'auto-pay', 'subscription', 'booking confirmation', 'ticket',
-  'reservation', 'out of office', 'blocked', 'hold', 'placeholder', 'tentative',
-];
-const LOGISTIC_PATTERN = /\[\d{6,}\]/;
-
 const EventSchema = z.object({
   external_id: z.string().min(1),
   title: z.string().default('Untitled Event'),
@@ -56,22 +46,6 @@ const BodySchema = z.object({
   windowEnd: z.string().min(1),
   events: z.array(EventSchema).max(2000),
 });
-
-function classify(title: string, attendeesCount: number): { eventType: string; isHighStakes: boolean } {
-  const t = title.toLowerCase();
-  if (LOGISTIC_KEYWORDS.some(kw => t.includes(kw)) || LOGISTIC_PATTERN.test(title)) {
-    return { eventType: 'logistic', isHighStakes: false };
-  }
-  if (t.includes('board') || t.includes('executive')) return { eventType: 'board-meeting', isHighStakes: true };
-  if (t.includes('presentation') || t.includes('demo') || t.includes('pitch')) return { eventType: 'presentation', isHighStakes: true };
-  if (t.includes('client') || t.includes('customer')) return { eventType: 'client-call', isHighStakes: attendeesCount > 5 };
-  if (t.includes('interview')) return { eventType: 'interview', isHighStakes: true };
-  if (t.includes('1:1') || t.includes('one-on-one')) return { eventType: 'one-on-one', isHighStakes: false };
-  if (t.includes('focus') || t.includes('deep work')) return { eventType: 'deep-work', isHighStakes: false };
-  if (t.includes('exam') || t.includes('test')) return { eventType: 'exam', isHighStakes: true };
-  if (t.includes('deadline') || t.includes('submission')) return { eventType: 'deadline', isHighStakes: true };
-  return { eventType: 'meeting', isHighStakes: false };
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -127,7 +101,6 @@ serve(async (req) => {
       .maybeSingle();
 
     const classifiedRaw = events.map(e => {
-      const { eventType, isHighStakes } = classify(e.title, e.attendees_count);
       // Apple EventKit returns recurring instances sharing the same eventIdentifier;
       // append start_time so each occurrence has a unique external_id and the
       // composite-key upsert does not collide within a single batch.
@@ -148,7 +121,7 @@ serve(async (req) => {
         // event_metadata.isAllDay — accept either shape.
         is_all_day: e.is_all_day
           ?? (e.event_metadata as Record<string, unknown> | undefined)?.isAllDay === true,
-        event_metadata: { ...e.event_metadata, source: 'apple_calendar', eventType, isHighStakes },
+        event_metadata: { ...e.event_metadata, source: 'apple_calendar' },
         // Phase 2 write-time dedupe foundation. See sync-calendar for
         // the shared contract. Null when title/times are missing.
         identity_key: computeIdentityKey({

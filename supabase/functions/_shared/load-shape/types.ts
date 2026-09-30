@@ -168,7 +168,9 @@ export type DemandMode =
   | "cognitive"
   | "social"
   | "logistical"
-  | "rhythmic";
+  | "rhythmic"
+  | "operational"
+  | "crisis";
 
 /**
  * The seven day-level load shapes.

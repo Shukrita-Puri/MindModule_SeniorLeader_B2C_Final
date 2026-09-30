@@ -47,6 +47,9 @@ export interface RuleEvent {
   attendeesCount?: number | null;
   isOrganizer?: boolean | null;
   isRecurring?: boolean | null;
+  stakes?: 'critical' | 'high' | 'medium' | 'low' | null;
+  is_high_stakes?: boolean | null;
+  event_category?: string | null;
 }
 
 export interface ImportanceContext {
@@ -147,13 +150,26 @@ export function scoreImportance(event: RuleEvent, ctx: ImportanceContext = {}): 
     if (w > 0) { score += Math.min(0.25, w * 0.25); reasons.push(rel); }
   }
 
-  // 3. Heuristics.
+  // 3. Stakes & Heuristics (Decision D3 / §11 — never consult attendee count).
+  const isHighStakesCat = event.event_category === 'A' || event.event_category === 'B' || event.event_category === 'C' || event.event_category === 'J';
+  const hasHighStakes = event.is_high_stakes === true || event.stakes === 'critical' || event.stakes === 'high' || isHighStakesCat;
+
+  if (hasHighStakes) {
+    score += 0.2;
+    reasons.push('high stakes');
+  }
+
   const t = (event.title || '').toLowerCase();
   for (const kw of HIGH_STAKES_KEYWORDS) {
-    if (t.includes(kw)) { score += 0.15; reasons.push(`${kw} keyword`); break; }
+    if (t.includes(kw)) {
+      if (!hasHighStakes) {
+        score += 0.15;
+        reasons.push(`${kw} keyword`);
+      }
+      break;
+    }
   }
   if (event.isOrganizer) { score += 0.05; reasons.push('organizer'); }
-  if ((event.attendeesCount ?? 0) >= 5) { score += 0.1; reasons.push('large attendance'); }
   if (event.isRecurring) { score -= 0.05; reasons.push('recurring'); }
 
   // Clamp 0..1

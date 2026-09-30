@@ -622,15 +622,7 @@ serve(async (req) => {
     try {
       for (const row of scored) {
         if (!row.eventCategory) continue;
-        await recordConfirmation(supabase, {
-          userId,
-          title: row.title,
-          category: row.eventCategory,
-          subcategory: row.eventSubcategory ?? null,
-          source: "resolver",
-          resolvedBy: "week_ahead_resolver",
-          confidence: "medium",
-        });
+        // Spec §10 & §14 Step 21: The system never teaches itself; do not write resolver guesses as confirmations.
         // Persist the stamp so every other surface reads the same answer off
         // the row rather than re-guessing from the title.
         await stampCalendarEventCategory(supabase, {

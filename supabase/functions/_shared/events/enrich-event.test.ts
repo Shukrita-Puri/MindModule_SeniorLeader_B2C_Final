@@ -53,9 +53,9 @@ Deno.test("enrichEvent respects timingMatrix to prevent arc fabrication for no-a
   assertEquals(learning.phases.during, undefined);
   assertEquals(learning.phases.post, undefined);
 
-  // E.routine_sync (catchup) has timingMatrix: { pre: false, during: false, post: false }
+  // I.routine_sync (catchup) has timingMatrix: { pre: false, during: false, post: false }
   const catchup = enrichEvent({ title: "Weekly sync" });
-  assertEquals(catchup.categoryId, "E");
+  assertEquals(catchup.categoryId, "I");
   assertEquals(catchup.phases.pre, undefined);
   assertEquals(catchup.phases.during, undefined);
   assertEquals(catchup.phases.post, undefined);

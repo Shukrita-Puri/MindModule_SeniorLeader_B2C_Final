@@ -240,7 +240,7 @@ export interface StackedEventGroup<E extends CalendarEventLite = CalendarEventLi
   primaryPillar: EventCategoryId | null;
 }
 
-const HIGH_STAKES_PILLARS: EventCategoryId[] = ['A', 'D'];
+const HIGH_STAKES_PILLARS: EventCategoryId[] = ['A', 'D', 'J'];
 const STACK_GAP_MINUTES = 90;
 
 export function consolidateAdjacentHighStakes<E extends CalendarEventLite>(

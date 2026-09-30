@@ -14,23 +14,25 @@ const BACKEND_SRC = readFileSync(
 
 function backendNames(): Record<string, string> {
   const out: Record<string, string> = {};
-  const re = /id:\s*"([A-H])",\s*\n\s*name:\s*"([^"]+)"/g;
+  const re = /id:\s*"([A-J])",\s*\n\s*name:\s*"([^"]+)"/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(BACKEND_SRC)) !== null) out[m[1]] = m[2];
   return out;
 }
 
-describe('A–H frontend mirror stays in sync with the backend SSOT', () => {
-  it('mirrors all eight pillar names verbatim', () => {
+describe('A–J frontend mirror stays in sync with the backend SSOT', () => {
+  it('mirrors all ten pillar names verbatim', () => {
     expect(backendNames()).toEqual(EVENT_CATEGORY_NAMES);
   });
 
-  it('covers A through H in order', () => {
-    expect(EVENT_CATEGORY_ORDER).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
+  it('covers A through J in order', () => {
+    expect(EVENT_CATEGORY_ORDER).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']);
   });
 
   it('recognises canonical labels only', () => {
-    expect(isCanonicalCategoryLabel('Deep Work & Strategy')).toBe(true);
+    expect(isCanonicalCategoryLabel('Strategic Thinking & Decision Making')).toBe(true);
+    expect(isCanonicalCategoryLabel('Operations & Execution')).toBe(true);
+    expect(isCanonicalCategoryLabel('Crisis, Risk & Incidents')).toBe(true);
     expect(isCanonicalCategoryLabel('Small-group meetings')).toBe(false);
     expect(isCanonicalCategoryLabel(null)).toBe(false);
   });

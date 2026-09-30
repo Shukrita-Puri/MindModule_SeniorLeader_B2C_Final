@@ -53,6 +53,8 @@ const CATEGORY_PHASE_SLUG: Partial<Record<EventCategoryId, Partial<Record<Phase,
   F: { pre: "emotional_labour",       during: "notification_overload", post: "recovery_for_next" },
   G: { pre: "travel_fatigue",         during: "circadian_resilience", post: "recovery_for_next" },
   H: { during: "daily_habit" },
+  I: { pre: "sustained_focus",        post: "stress_accumulation" },
+  J: { pre: "emotion_hijack",         during: "emotion_hijack",       post: "post_peak_hangover" },
 };
 
 export function roleForCategoryPhase(category: EventCategoryId, phase: Phase): TitleRole {

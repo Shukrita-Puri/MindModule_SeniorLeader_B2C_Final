@@ -17,7 +17,7 @@ function subtypeIdFromV1(title: string): string | null {
 
 // ── Cross-layer invariants ─────────────────────────────────────────
 
-Deno.test("v2 rows: every new subtype resolves to a known category (A–H)", () => {
+Deno.test("v2 rows: every new subtype resolves to a known category (A–J)", () => {
   const newIds = [
     "gov.trustee",
     "inf.pitch_competitive",
@@ -42,7 +42,7 @@ Deno.test("v2 rows: every new subtype resolves to a known category (A–H)", () 
     const row = EVENT_TYPES.find((e) => e.id === id);
     assert(row, `${id} missing from EVENT_TYPES`);
     assert(
-      ["A", "B", "C", "D", "E", "F", "G", "H"].includes(row!.categoryId),
+      ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"].includes(row!.categoryId),
       `${id} bad categoryId`,
     );
   }

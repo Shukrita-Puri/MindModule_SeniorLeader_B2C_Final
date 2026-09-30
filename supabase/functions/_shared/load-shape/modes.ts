@@ -25,6 +25,8 @@ export const CATEGORY_TO_MODE: Record<EventCategory, DemandMode> = {
   F: "social",
   G: "logistical",
   H: "rhythmic",
+  I: "operational",
+  J: "crisis",
 };
 
 /** Categories whose mode label is shared with cause-effect-engine's private map. */

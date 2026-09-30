@@ -46,7 +46,7 @@ import Security
         }
     }
 
-    private func participantSummary(_ participant: EKParticipant) -> [String: Any] {
+    private func participantSummary(_ participant: EKParticipant, organizer: EKParticipant? = nil) -> [String: Any] {
         let contactUrl = participant.url.absoluteString
         let email: String = {
             let s = contactUrl.lowercased()
@@ -62,6 +62,14 @@ import Security
             }
             return ""
         }()
+        var isOrg = participant.participantRole == .chair
+        if let org = organizer {
+            if participant.url == org.url {
+                isOrg = true
+            } else if let pName = participant.name, let oName = org.name, !pName.isEmpty, pName == oName {
+                isOrg = true
+            }
+        }
         var summary: [String: Any] = [
             "displayName": participant.name ?? "",
             "contactUrl": participant.url.absoluteString,
@@ -69,10 +77,8 @@ import Security
             "emailDomain": emailDomain,
             "responseStatus": participantStatusLabel(participant.participantStatus),
             "isSelf": participant.isCurrentUser,
+            "isOrganizer": isOrg,
         ]
-        // EventKit exposes the organizer on the event itself; keep a soft flag here
-        // without depending on a role enum case that is not available in all SDKs.
-        summary["isOrganizer"] = participant.isCurrentUser
         return summary
     }
 
@@ -253,7 +259,7 @@ import Security
                     "emailDomain": organizerEmailDomain,
                     "isCurrentUser": isOrganizer,
                 ],
-                "attendees": attendees.map { participantSummary($0) },
+                "attendees": attendees.map { participantSummary($0, organizer: ev.organizer) },
                 "attendeeCount": attendees.count,
             ]
             var metadata: [String: Any] = [

@@ -18,6 +18,8 @@ const FRAMES: Record<EventCategoryId, Partial<Record<Phase, string>>> = {
   F: { pre: "Pre-load parasympathetic for output", during: "Stay present, do not overspend", post: "Active recovery, sleep priming" },
   G: { pre: "Pre-load parasympathetic for travel", during: "Anchor circadian rhythm in transit", post: "Hardware recovery, circadian re-entry" },
   H: { during: "Build, do not wind down" },
+  I: { pre: "Set pacing and clear priorities", post: "Reset and clear switching residue" },
+  J: { pre: "Anchor physiology and stabilise panic", during: "Widen focus and slow tempo", post: "Acute reset and downregulate nervous system" },
 };
 
 export function buildActionFrame(category: EventCategoryId | null, phase: Phase | null): string | null {

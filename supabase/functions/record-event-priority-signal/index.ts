@@ -21,6 +21,7 @@ import { coarseEventType } from "../_shared/events/event-classifier.ts";
 import { enrichEvent } from "../_shared/events/enrich-event.ts";
 import {
   recordConfirmation,
+  recordUserCorrection,
   stampCalendarEventCategory,
 } from "../_shared/events/learning-store.ts";
 import {
@@ -59,6 +60,8 @@ const VALID_SIGNALS = new Set([
   "tag_relationship",
   "tag_custom",
   "tag_cleared",
+  // Spec §10 & §14 Step 21/22: Category correction signal
+  "category_correction",
 ]);
 
 const VALID_SOURCES = new Set([
@@ -66,6 +69,8 @@ const VALID_SOURCES = new Set([
   "priority_tag",
   "cancel_feedback",
   "post_plan_feedback",
+  "category_correction_control",
+  "daily_question",
 ]);
 
 // Map UI relationshipTag → role used by the sovereign relationship layer.
@@ -175,19 +180,19 @@ serve(async (req) => {
     const subcategory = enrichedSignal.subcategory;
 
     // ─── Learning loop: user override → confirmed classification ───
-    // An explicit A–H category from the client wins; otherwise the act of
+    // An explicit A–J category from the client wins; otherwise the act of
     // categorising/acting on the event confirms the current resolution for
     // this title. Best-effort — never blocks the signal write.
     const clientCategoryRaw = typeof body?.eventCategory === "string"
       ? body.eventCategory.trim().toUpperCase().slice(0, 1)
       : null;
     const confirmedCategory =
-      (clientCategoryRaw && "ABCDEFGH".includes(clientCategoryRaw)
+      (clientCategoryRaw && "ABCDEFGHIJ".includes(clientCategoryRaw)
         ? clientCategoryRaw
         : null) ?? enrichedSignal.categoryId ?? null;
     const confirmationSource = clientCategoryRaw
       ? "user_override" as const
-      : (source === "post_plan_feedback" ? "plan_slot" as const : "user_override" as const);
+      : "user_override" as const;
 
     // ─── SSOT exclusion scope: compute the target week + resolve identity ───
     const scope = scopeForSignal(signal);
@@ -332,29 +337,44 @@ serve(async (req) => {
       }
     }
 
-    // ─── Snapshot invalidation ───
+    // ─── Snapshot invalidation & Scoped Memory Write-Back ───
     // Learning loop write-back (fire-and-forget ordering: awaited but guarded).
     if (confirmedCategory) {
-      await recordConfirmation(supabase, {
-        userId,
-        title: resolvedTitle,
-        category: confirmedCategory,
-        subcategory,
-        subtypeId: enrichedSignal.subtype?.id ?? null,
-        source: confirmationSource,
-        resolvedBy: clientCategoryRaw ? "user_category" : "user_action",
-        confidence: "high",
-      });
-      const stampId = resolvedEventUuid ?? eventId;
-      if (stampId) {
-        await stampCalendarEventCategory(supabase, {
+      if (clientCategoryRaw || signal === "category_correction" || source === "daily_question") {
+        await recordUserCorrection(supabase, {
           userId,
-          eventId: stampId,
+          eventId: resolvedEventUuid ?? eventId,
+          seriesId: (body?.seriesId as string | undefined) ?? null,
+          title: resolvedTitle,
+          scope: (body?.targetScope as any) ?? (body?.scope as any) ?? "THIS_EVENT",
+          category: confirmedCategory as any,
+          subtypeId: (body?.subtypeId as string | undefined) ?? enrichedSignal.subtype?.id ?? null,
+          previousCategory: (body?.previousCategory as string | undefined) ?? (body?.oldCategory as string | undefined) ?? null,
+          negative: Boolean(body?.negative),
+          source: source === "daily_question" ? "daily_question" : "user",
+        });
+      } else {
+        await recordConfirmation(supabase, {
+          userId,
+          title: resolvedTitle,
           category: confirmedCategory,
           subcategory,
-          resolvedBy: clientCategoryRaw ? "user_category" : "user_action",
+          subtypeId: enrichedSignal.subtype?.id ?? null,
+          source: confirmationSource,
+          resolvedBy: "user_action",
           confidence: "high",
         });
+        const stampId = resolvedEventUuid ?? eventId;
+        if (stampId) {
+          await stampCalendarEventCategory(supabase, {
+            userId,
+            eventId: stampId,
+            category: confirmedCategory,
+            subcategory,
+            resolvedBy: "user_action",
+            confidence: "high",
+          });
+        }
       }
     }
 

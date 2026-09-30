@@ -58,6 +58,17 @@ function extractAttendeeSignals(metadata: any): AttendeeSignals | null {
 }
 
 function inferRelationshipTag(title: string, metadata: any, attendeeCount: number): { tag: AttendeeRelationshipTag | null; reason: string | null } {
+  // 1. Read from canonical Spine classification (Decision D3 / §11)
+  try {
+    const resolved = resolveEvent({ title, event_metadata: metadata });
+    const spineRel = resolved.stamp?.dimensions?.relationship;
+    if (spineRel === 'boss' || spineRel === 'client' || spineRel === 'vendor' || spineRel === 'junior' || spineRel === 'colleague') {
+      return { tag: spineRel, reason: 'spine canonical relationship dimension' };
+    }
+  } catch {
+    // Fall back to keyword matching if resolution fails
+  }
+
   const lower = `${title || ''} ${JSON.stringify(metadata || {})}`.toLowerCase();
   if (/(client|customer|account|proposal|demo|vendor|supplier|partner)/.test(lower)) {
     return { tag: /vendor|supplier|partner/.test(lower) ? 'vendor' : 'client', reason: 'relationship keywords' };
@@ -70,9 +81,6 @@ function inferRelationshipTag(title: string, metadata: any, attendeeCount: numbe
   }
   if (/(team|sync|standup|stand-up|working session|planning|retro)/.test(lower)) {
     return { tag: 'colleague', reason: 'peer collaboration keywords' };
-  }
-  if (attendeeCount >= 5) {
-    return { tag: 'client', reason: 'large multi-party meeting' };
   }
   return { tag: null, reason: null };
 }
@@ -139,6 +147,8 @@ const GROUP_TO_CLUSTER: Record<EventGroup, { cluster: string; bucket: string; sc
   F_operational: { cluster: 'pressure',     bucket: 'recalibrate', score: 22 },
   G_travel:      { cluster: 'transition',   bucket: 'renewal',     score: 18 },
   H_recovery:    { cluster: 'transition',   bucket: 'renewal',     score: 15 },
+  I_operations:  { cluster: 'pressure',     bucket: 'clarity',     score: 20 },
+  J_crisis:      { cluster: 'pressure',     bucket: 'recalibrate', score: 35 },
 };
 
 function scoreDimensionB(title: string, coachSignalScore: number, coachSignalBucket: string | null): DimBResult {

@@ -69,6 +69,9 @@ Deno.test("the subcategory list matches the EventSubcategory union in types.ts",
 // out of scope for the Load Shape change).
 const RESOLVER_ALIASES: Record<string, string> = {
   "G.travel_day": "G.travel", // trv.travel_day → subcategory "travel"
+  "D.crisis_decision": "J.crisis_decision", // Moved from D to J in A-J Spine
+  "E.routine_sync": "I.routine_sync", // Moved from E to I in A-J Spine
+  "E.compliance": "I.compliance", // Moved from E to I in A-J Spine
 };
 
 Deno.test("every subcategory is reachable from the canonical subtype table", () => {

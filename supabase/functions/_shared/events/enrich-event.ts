@@ -23,6 +23,8 @@ import {
   lookupLearned,
   type LearningContext,
 } from "./learning-store.ts";
+import { isEngineModeV3, isEngineModeCanary } from "./engine-mode.ts";
+import { classifyEventV3 } from "./event-classifier-v3.ts";
 
 /**
  * Travel arc classification for G.flight events.
@@ -97,6 +99,13 @@ export function subcategoryFromSubtypeId(
   return idx === -1 ? id : id.slice(idx + 1);
 }
 
+import {
+  type ClassificationStamp,
+  type CanonicalItem,
+  buildCanonicalItemFromRaw,
+  buildClassificationStamp,
+} from "./spine-contracts.ts";
+
 export interface EnrichedEvent {
   raw: any;
   title: string;
@@ -122,7 +131,11 @@ export interface EnrichedEvent {
     post?: ReturnType<typeof phaseForEvent>;
   };
   confidence: Confidence;
-  source: ResolvedBy | 'layer3_persisted';
+  source: ResolvedBy | 'layer3_persisted' | 'user_override' | 'confirmed_memory' | 'v3_evidence';
+  /** Spine Contract 3: Full classification stamp */
+  stamp: ClassificationStamp;
+  /** Spine Contract 1: Canonical item */
+  canonicalItem: CanonicalItem;
 }
 
 export function enrichEvent(raw: any): EnrichedEvent {
@@ -148,15 +161,32 @@ export function enrichEvent(raw: any): EnrichedEvent {
   if (categoryId) {
     const timingMatrix = subtype?.timingMatrix;
     if (EVENT_PHASE_MAP[categoryId].pre && (!timingMatrix || timingMatrix.pre)) {
-      phases.pre = phaseForEvent(title, "pre");
+      phases.pre = phaseForEvent(title, "pre", null, categoryId);
     }
     if (EVENT_PHASE_MAP[categoryId].during && (!timingMatrix || timingMatrix.during)) {
-      phases.during = phaseForEvent(title, "during");
+      phases.during = phaseForEvent(title, "during", null, categoryId);
     }
     if (EVENT_PHASE_MAP[categoryId].post && (!timingMatrix || timingMatrix.post)) {
-      phases.post = phaseForEvent(title, "post");
+      phases.post = phaseForEvent(title, "post", null, categoryId);
     }
   }
+
+  const userId = (raw?.user_id ?? raw?.event?.user_id ?? null) as string | null;
+  const stamp = ((isEngineModeV3() || isEngineModeCanary(userId)) && resolved.source === "v3_evidence")
+    ? classifyEventV3(raw ?? { title })
+    : buildClassificationStamp({
+        raw,
+        title,
+        category,
+        subtype,
+        confidence: resolved.confidence,
+        source: resolved.source,
+        durationMinutes,
+        travelArc,
+      });
+
+  const canonicalItem = buildCanonicalItemFromRaw(raw);
+
   return {
     raw,
     title,
@@ -172,5 +202,7 @@ export function enrichEvent(raw: any): EnrichedEvent {
     phases,
     confidence: resolved.confidence,
     source: resolved.source,
+    stamp,
+    canonicalItem,
   };
 }

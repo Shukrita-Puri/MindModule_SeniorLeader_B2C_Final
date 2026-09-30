@@ -47,13 +47,16 @@ interface AttendeeLike {
 export async function collectUnresolvedAttendeeEmails(
   supabase: any,
   userId: string,
-  syncedEvents: Array<{ event_metadata?: { attendeeSignals?: AttendeeLike[] } }>,
+  syncedEvents: Array<{ event_metadata?: { attendeeSignals?: AttendeeLike[] | { attendees?: AttendeeLike[] } } }>,
 ): Promise<{ emails: string[]; skipped_generic: number; skipped_cached: number }> {
   const collected = new Set<string>();
   let skippedGeneric = 0;
   for (const ev of syncedEvents) {
-    const signals = ev?.event_metadata?.attendeeSignals;
-    if (!Array.isArray(signals)) continue;
+    const rawSignals = ev?.event_metadata?.attendeeSignals;
+    const signals: AttendeeLike[] = Array.isArray(rawSignals)
+      ? rawSignals
+      : (Array.isArray((rawSignals as any)?.attendees) ? (rawSignals as any).attendees : []);
+    if (signals.length === 0) continue;
     for (const s of signals) {
       if (!s?.email || s.isSelf) continue;
       const email = String(s.email).toLowerCase().trim();

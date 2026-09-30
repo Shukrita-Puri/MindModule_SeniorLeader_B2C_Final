@@ -20,7 +20,7 @@
 
 import { EVENT_TYPES, type EventType } from "./event-subtypes.ts";
 import type { EventCategoryId } from "./event-categories.ts";
-import { classifyEvent } from "./event-classifier.ts";
+import { classifyEvent, legacyClassifyEvent } from "./event-classifier.ts";
 import { detectTravelFromTitle, extractBareAirportCodes } from "./travel-patterns.ts";
 import { hasPresentationVerb } from "./presentation-verbs.ts";
 import { findAcronymMatch } from "./acronym-dictionary.ts";
@@ -322,7 +322,7 @@ export function classifyEventV2(input: ClassifyV2Input): ClassifyV2Result {
   // BUT: skip v1 hits that landed on a subtype L6 explicitly excluded
   // (e.g. "Onboarding" v1→gov.board_meeting is suppressed because
   // gov.board_meeting.excludeKeywords contains 'onboarding').
-  const v1 = classifyEvent(title);
+  const v1 = legacyClassifyEvent(title);
   if (v1 && !excludedByL6.has(v1.id)) {
     return {
       category: v1.categoryId,

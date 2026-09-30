@@ -18,11 +18,11 @@ const CASES: Array<[string, string, string]> = [
   ["Reservation at Yoshoku", "H", "recreation"],
   ["Chief AI Thursday connects", "E", "community"],
   ["Flight to New York (BA 183)", "G", "flight"],
-  ["Weekly team sync", "E", "routine_sync"],
+  ["Weekly team sync", "I", "routine_sync"],
   ["Keynote at Founder Summit", "C", "speaking"],
   ["Speaking at the AI leaders roundtable", "C", "roundtable"],
   ["3-year strategy planning", "A", "strategy"],
-  ["Production incident escalation", "D", "crisis_decision"],
+  ["Production incident escalation", "J", "crisis_decision"],
   ["Queen's Gate School open evening", "F", "workshop"],
   ["Deep work block — strategy memo", "E", "deep_work"],
 ];

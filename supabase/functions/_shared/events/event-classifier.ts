@@ -11,6 +11,12 @@ import {
   type Pillar,
 } from "./event-subtypes.ts";
 import { normalizeForClassify } from "../rules/calendar-merge.ts";
+import { resolveEvent } from "./resolve-event-category.ts";
+import { getEngineMode } from "./engine-mode.ts";
+
+const SUBTYPE_BY_ID = new Map<string, EventType>(
+  EVENT_TYPES.map((et) => [et.id, et]),
+);
 
 // ── Noise filter ─────────────────────────────────────────────────────
 
@@ -49,11 +55,8 @@ export function isEducationalTitle(title: string | null | undefined): boolean {
 
 // ── Classification ──────────────────────────────────────────────────
 
-export function classifyEvent(
+export function legacyClassifyEvent(
   title: string | null | undefined,
-  _attendees?: number | null,
-  _durationMin?: number | null,
-  _isRecurring?: boolean | null,
 ): EventType | null {
   if (!title) return null;
   const lower = title.toLowerCase();
@@ -69,6 +72,42 @@ export function classifyEvent(
     return et;
   }
   return null;
+}
+
+let isInsideClassify = false;
+
+export function classifyEvent(
+  title: string | null | undefined,
+  _attendees?: number | null,
+  _durationMin?: number | null,
+  _isRecurring?: boolean | null,
+): EventType | null {
+  if (!title) return null;
+
+  // In Stage H: default / v3 routes directly through the single Spine surface
+  const mode = getEngineMode();
+  if (mode === "legacy" || isInsideClassify) {
+    return legacyClassifyEvent(title);
+  }
+
+  isInsideClassify = true;
+  try {
+    const resolved = resolveEvent(title);
+    if (resolved.subtype?.id) {
+      const match = SUBTYPE_BY_ID.get(resolved.subtype.id);
+      if (match) return match;
+    }
+    if (resolved.categoryId) {
+      const catMatch = EVENT_TYPES.find((et) => et.categoryId === resolved.categoryId);
+      if (catMatch) return catMatch;
+    }
+  } catch (_err) {
+    // Fail-open fallback
+  } finally {
+    isInsideClassify = false;
+  }
+
+  return legacyClassifyEvent(title);
 }
 
 // classifyEventLabel / classifyEventBucket / scenarioIdFor were keyword-only
@@ -115,6 +154,11 @@ export const SUBTYPE_TO_COARSE: Record<string, string> = {
   'trv.flight':                  'travel',
   'rhy.catchup':                 'standup',
   'rhy.pto':                     'pto',
+  'ops.operating_review':        'quarterly-review',
+  'ops.admin':                   'other',
+  'risk.incident_review':        'crisis',
+  'risk.legal_regulatory':       'crisis',
+  'risk.reputation':             'crisis',
 };
 
 /**
@@ -180,7 +224,7 @@ export function canonicalTagForCoarse(coarse: string | null | undefined): string
 // same intent without a second taxonomy.
 
 /** Categories that count as a pressure/cluster signal for legacy gating. */
-const CLUSTER_CATEGORIES = new Set(['A', 'B', 'C', 'D', 'E', 'F']); // gov, influence, visibility, people, deep work, conferences
+const CLUSTER_CATEGORIES = new Set(['A', 'B', 'C', 'D', 'E', 'F', 'J']); // gov, influence, visibility, people, deep work, conferences, crisis
 
 export function eventClusterSignal(title: string | null | undefined): boolean {
   const et = classifyEvent(title);
@@ -344,12 +388,35 @@ export function rankByStakes<E extends CalendarEventLite>(events: E[], topN: num
 // ── High-stakes shorthand ────────────────────────────────────────────
 
 export function isHighStakesTitle(title: string | null | undefined): boolean {
+  if (!title) return false;
+  try {
+    const resolved = resolveEvent(title);
+    if (resolved.stamp?.dimensions?.stakes === "critical" || resolved.stamp?.dimensions?.stakes === "high") {
+      return true;
+    }
+    const cat = resolved.categoryId;
+    if (cat === "A" || cat === "B" || cat === "C" || cat === "J") {
+      return true;
+    }
+  } catch {
+    // Fall back to legacy scoring on error
+  }
   const t = classifyEvent(title);
   if (!t) return false;
   return stakesScore(t) >= 75;
 }
 
 export function highStakesScore(title: string | null | undefined): number {
+  if (!title) return 0;
+  try {
+    const resolved = resolveEvent(title);
+    if (resolved.stamp?.dimensions?.stakes === "critical") return 95;
+    if (resolved.stamp?.dimensions?.stakes === "high") return 80;
+    const cat = resolved.categoryId;
+    if (cat === "A" || cat === "B" || cat === "C" || cat === "J") return 80;
+  } catch {
+    // Fall back
+  }
   const t = classifyEvent(title);
   if (!t) return 0;
   return Math.min(100, Math.round((stakesScore(t) / 150) * 100));

@@ -59,7 +59,7 @@ async function walkFunctions(dir: string, acc: string[] = []): Promise<string[]>
 }
 
 Deno.test("no module outside _shared/events imports the keyword-only classifier", async () => {
-  const root = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
+  const root = decodeURIComponent(new URL("../../", import.meta.url).pathname).replace(/\/$/, "");
   const eventsDir = `${root}/_shared/events`;
   const files = (await walkFunctions(root)).filter((f) => !f.startsWith(eventsDir));
   const offenders: string[] = [];

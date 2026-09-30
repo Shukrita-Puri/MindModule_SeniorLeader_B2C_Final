@@ -119,6 +119,8 @@ const STAKES_WEIGHT: Record<EventCategoryId, number> = {
   F: 1,
   G: 0,
   H: 0,
+  I: 1,
+  J: 4,
 };
 
 interface ResolvedEvt {

@@ -77,7 +77,7 @@ const STAKES_BASE: Record<string, number> = {
 };
 
 const CATEGORY_WEIGHT: Record<EventCategoryId, number> = {
-  A: 20, B: 10, C: 15, D: 15, E: 5, F: 10, G: 5, H: 0,
+  A: 20, B: 10, C: 15, D: 15, E: 5, F: 10, G: 5, H: 0, I: 5, J: 25,
 };
 
 const SEVERITY_WEIGHT = { high: 15, medium: 8, low: 3 } as const;

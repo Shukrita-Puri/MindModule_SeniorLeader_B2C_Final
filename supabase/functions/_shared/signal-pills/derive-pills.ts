@@ -121,6 +121,8 @@ export interface SignalPillContributors {
   pressureLevel?: number | null;
   sustainedDeficit?: boolean;
   sustainedDeficitSeverity?: SustainedDeficitSeverity;
+  checkInComposite?: number | null;
+  checkInEffect?: "hardened" | "softened" | "none" | null;
 }
 
 export interface SignalPill {

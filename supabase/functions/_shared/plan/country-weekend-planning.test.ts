@@ -224,7 +224,7 @@ Deno.test("null country + home_timezone Asia/Riyadh resolves to SA / Saturday pl
 });
 
 Deno.test("null country + home_timezone Europe/London resolves to GB / Sunday planning", () => {
-  const resolved = null ?? tzToCountry("Europe/London") ?? null;
+  const resolved = tzToCountry("Europe/London") ?? null;
   assertEquals(resolved, "GB");
   assertEquals(planningDayOfWeek(resolved), 0);
 });

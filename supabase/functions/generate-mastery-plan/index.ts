@@ -3356,6 +3356,17 @@ function inferRelationshipTag(
   metadata: any,
   attendeeCount: number,
 ): { tag: RelationshipTag | null; reason: string | null } {
+  // 1. Read from canonical Spine classification (Decision D3 / §11)
+  try {
+    const resolved = resolveEvent({ title, event_metadata: metadata });
+    const spineRel = resolved.stamp?.dimensions?.relationship;
+    if (spineRel === 'boss' || spineRel === 'client' || spineRel === 'vendor' || spineRel === 'junior' || spineRel === 'colleague') {
+      return { tag: spineRel as RelationshipTag, reason: 'spine canonical relationship dimension' };
+    }
+  } catch {
+    // Fall back to keyword matching if resolution fails
+  }
+
   const lower = `${title || ""} ${JSON.stringify(metadata || {})}`
     .toLowerCase();
   if (
@@ -3384,19 +3395,6 @@ function inferRelationshipTag(
     /(team|sync|standup|stand-up|working session|planning|retro)/.test(lower)
   ) {
     return { tag: "colleague", reason: "peer collaboration keywords" };
-  }
-  const attendeeSignals = metadata?.attendeeSignals;
-  const attendees = Array.isArray(attendeeSignals?.attendees)
-    ? attendeeSignals.attendees
-    : [];
-  if (
-    attendeeCount >= 5 &&
-    attendees.some((a: any) => a?.responseStatus === "declined")
-  ) {
-    return { tag: "client", reason: "large meeting with declined attendees" };
-  }
-  if (attendeeCount >= 6) {
-    return { tag: "client", reason: "large multi-party meeting" };
   }
   return { tag: null, reason: null };
 }
@@ -5185,18 +5183,7 @@ async function buildSharedContext(
             confidence: "medium",
           });
         }
-        await recordConfirmation(supabaseClient, {
-          userId: req.userId,
-          title: e.title,
-          category: resolved.categoryId,
-          subcategory: resolved.subcategory,
-          subtypeId: resolved.subtype?.id ?? null,
-          // An event the user pulled into one of the day's three slots is a
-          // stronger observation than a passive resolve.
-          source: inSlotSelection ? "plan_slot" : "resolver",
-          resolvedBy: "plan_resolver",
-          confidence: inSlotSelection ? "high" : "medium",
-        });
+        // Spec §10 & §14 Step 21: Stop writing engine results and plan pulls as confirmations.
       }
     } catch (_e) { /* degrade to dictionary */ }
     req.calendarEvents = ctx.rawCalendarEvents.map((e: any) => ({
