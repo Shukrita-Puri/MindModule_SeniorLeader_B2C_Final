@@ -24,7 +24,7 @@ const RecalibrateMode = () => {
     },
     {
       id: "presence",
-      title: "Flow Mastery",
+      title: "Focus Mastery",
       description: "Enter deep focus and sustain peak mental performance.",
       illustration: architecturalPresence,
       path: "/recalibrate/presence",

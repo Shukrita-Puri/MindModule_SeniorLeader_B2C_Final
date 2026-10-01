@@ -327,7 +327,7 @@ const PowerUpOutcomePage = () => {
               Pause Mastery →
             </Button>
             <Button variant="critical" onClick={() => navigate('/recalibrate/presence')}>
-              Flow Mastery →
+              Focus Mastery →
             </Button>
           </div>
         </div>

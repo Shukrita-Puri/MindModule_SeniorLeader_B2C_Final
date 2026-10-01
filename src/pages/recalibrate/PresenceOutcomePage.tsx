@@ -180,7 +180,7 @@ const PresenceOutcomePage = () => {
       {/* Minimal Header */}
       <div className="relative pt-[calc(env(safe-area-inset-top,0px)+5rem)] pb-6 px-6 max-w-4xl mx-auto">
         <h1 className="text-display text-foreground mb-2">
-          Flow Mastery
+          Focus Mastery
         </h1>
         <p className="text-body-sm text-muted-foreground">Enter deep focus and sustain peak mental performance.</p>
       </div>

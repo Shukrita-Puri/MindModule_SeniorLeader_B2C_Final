@@ -316,7 +316,7 @@ const PauseOutcomePage = () => {
           <p className="text-muted-foreground mb-4">Looking for something else?</p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Button variant="critical" onClick={() => navigate('/recalibrate/presence')}>
-              Flow Mastery →
+              Focus Mastery →
             </Button>
             <Button variant="critical" onClick={() => navigate('/recalibrate/power-up')}>
               Recharge Mastery →
