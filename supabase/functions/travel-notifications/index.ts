@@ -171,11 +171,11 @@ Deno.serve(async (req) => {
       .select("id,current_timezone,home_timezone")
       .eq("id", userId)
       .maybeSingle();
-    const tzRead = await resolveEffectiveTimezone(supabase, userId, profile ?? { current_timezone: inputTz });
+    const tzRead = await resolveEffectiveTimezone(supabase as any, userId, profile ?? { current_timezone: inputTz });
     const tz = tzRead.effectiveTimezone || inputTz;
     const now = new Date();
     const nowIso = now.toISOString();
-    const todayKey = localParts(tz).localDate;
+    const todayKey = localParts(tz as string).localDate;
 
     // 1. Cancel any pending notifications whose snapshot no longer matches
     // current state, OR that are older than 24h with no delivery.
@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
     const transitionPhase = phaseForTransition(prevState, newState);
     const desiredPlanPhase = transitionPhase ? TRAVEL_PHASE_KEY[transitionPhase] : null;
     const planPhase = desiredPlanPhase
-      ? await loadPlanTravelPhase(supabase, userId, todayKey, desiredPlanPhase)
+      ? await loadPlanTravelPhase(supabase as any, userId, todayKey, desiredPlanPhase)
       : null;
     const phase = planPhase?.phase ?? transitionPhase;
     let scheduledId: string | null = null;
