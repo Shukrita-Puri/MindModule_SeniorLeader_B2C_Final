@@ -77,7 +77,7 @@ async function buildToken(): Promise<string> {
 
   const key = await crypto.subtle.importKey(
     'pkcs8',
-    pemToPkcs8(privateKeyPem),
+    pemToPkcs8(privateKeyPem) as BufferSource,
     { name: 'ECDSA', namedCurve: 'P-256' },
     false,
     ['sign'],
