@@ -14,7 +14,8 @@ const corsHeaders = {
 };
 
 async function enqueueSyncForConnection(
-  serviceClient: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  serviceClient: any,
   userId: string,
   provider: string,
   label: string,
