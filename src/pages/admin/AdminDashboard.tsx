@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getAuthToken } from '@/services/authTokenService';
+import CalendarLabelingExport from '@/components/admin/CalendarLabelingExport';
 
 interface Summary {
   generatedAt: string;
@@ -201,6 +202,8 @@ const AdminDashboard = () => {
           </Card>
         </>
       )}
+
+      <CalendarLabelingExport />
     </div>
   );
 };

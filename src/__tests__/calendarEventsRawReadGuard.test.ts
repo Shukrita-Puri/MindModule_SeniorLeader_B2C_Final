@@ -36,6 +36,8 @@ const APPROVED_WRITERS = new Set<string>([
   // any derived values, so they cannot drift from the merge layer.
   'supabase/functions/analyze-calendar-identity-duplicates/index.ts',
   'supabase/functions/backfill-calendar-identity-keys/index.ts',
+  // Admin-only labeling export: must read raw rows (requireAdmin-gated, read-only).
+  'supabase/functions/admin-export-calendar-events/index.ts',
   'scripts/backfill-event-tags.ts',
   'supabase/functions/_shared/events/learning-store.ts',
 ]);
