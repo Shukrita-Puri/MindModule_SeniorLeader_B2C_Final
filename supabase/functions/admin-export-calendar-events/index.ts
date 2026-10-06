@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     const { data: events, error: eventsErr } = await db
       .from("calendar_events")
       .select(
-        "id, title, description, location, start_time, end_time, attendees, is_recurring, recurring_event_id, event_category, event_subcategory",
+        "id, title, start_time, end_time, attendees_count, is_recurring, event_metadata, event_category, event_subcategory",
       )
       .eq("user_id", profile.id)
       .order("start_time", { ascending: false })
@@ -45,13 +45,23 @@ Deno.serve(async (req) => {
     if (eventsErr) throw eventsErr;
 
     const rows = (events ?? []).map((evt: Record<string, unknown>, idx: number) => {
-      const attendees = Array.isArray(evt.attendees) ? (evt.attendees as Record<string, unknown>[]) : [];
+      const meta = (evt.event_metadata && typeof evt.event_metadata === "object" ? evt.event_metadata : {}) as Record<string, unknown>;
+      const sig = meta.attendeeSignals as Record<string, unknown> | undefined;
+      const rawAtt = (meta.attendees ?? sig?.attendees ?? []) as unknown;
+      const attendees = Array.isArray(rawAtt) ? (rawAtt as Record<string, unknown>[]) : [];
+      const sigDomains = Array.isArray(sig?.domains) ? (sig!.domains as string[]) : [];
+      const descRaw = meta.description ?? meta.notes ?? meta.body ?? "";
+      const description = typeof descRaw === "string" ? descRaw : JSON.stringify(descRaw);
+      const locRaw = meta.location ?? "";
+      const location = typeof locRaw === "string" ? locRaw : ((locRaw as Record<string, unknown>)?.displayName as string) ?? JSON.stringify(locRaw);
+      const recurringId = (meta.recurringEventId ?? meta.seriesMasterId ?? "") as string;
       const domains = new Set<string>();
       for (const a of attendees) {
         const email = typeof a?.email === "string" ? a.email : null;
         const domain = email && email.includes("@") ? email.split("@")[1]?.trim().toLowerCase() : null;
         if (domain) domains.add(domain);
       }
+      for (const d of sigDomains) if (typeof d === "string" && d) domains.add(d.toLowerCase());
       const startMs = evt.start_time ? new Date(evt.start_time as string).getTime() : NaN;
       const endMs = evt.end_time ? new Date(evt.end_time as string).getTime() : NaN;
       const durationMinutes = Number.isFinite(startMs) && Number.isFinite(endMs)
@@ -62,14 +72,14 @@ Deno.serve(async (req) => {
         index: idx + 1,
         id: evt.id,
         title: evt.title ?? "",
-        description: evt.description ?? "",
-        location: evt.location ?? "",
+        description,
+        location,
         start_time: evt.start_time ?? "",
         end_time: evt.end_time ?? "",
         durationMinutes,
-        is_recurring: !!(evt.is_recurring || evt.recurring_event_id),
-        recurring_event_id: evt.recurring_event_id ?? "",
-        attendees_count: attendees.length,
+        is_recurring: !!(evt.is_recurring || recurringId),
+        recurring_event_id: recurringId,
+        attendees_count: (evt.attendees_count as number | null) ?? attendees.length,
         attendee_domains: Array.from(domains).join("; "),
         legacy_category: evt.event_category ?? "",
         legacy_subtype: evt.event_subcategory ?? "",
