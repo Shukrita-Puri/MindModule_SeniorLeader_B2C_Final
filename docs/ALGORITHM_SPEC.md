@@ -1,6 +1,6 @@
 # ALGORITHM_SPEC — MindModule
 
-Status: **Part 1 of 7** (System overview + Importance weighting).
+Status: **Parts 1–2 of 7** written (System overview + Importance weighting; JIT v2).
 Scope: describes what the code does **as of the repository snapshot read on 2026‑10‑10**. No application code was modified to produce this document.
 
 Labels used throughout:
@@ -745,6 +745,317 @@ How the ranked list becomes 3 plan slots (`adaptV2Ranked` → `allocatePlanSlots
 | Recurring demotion | learned | −25 for 4 weeks after a not-this-week week, same weekday | next run |
 | Day demand score | static rules on live calendar | — | each readiness compute |
 
+
 ---
 
-*End of Part 1. Say **"continue"** for Part 2 (JIT v2 in full detail, with a worked end-to-end run).*
+## 3. JIT v2 (full detail)
+
+Scope: this part covers only JIT v2. The v1 implementations named in §0.2 are `[EXCLUDED: JIT v1]`. Because v1 is excluded, no v1-vs-v2 difference table is given.
+
+### 3.1 What JIT v2 does
+
+JIT v2 takes the user's upcoming calendar events and runs four steps:
+
+1. **Score** each event with one importance number (§2).
+2. **Fan out** each ranked event into one candidate per preparation phase it supports (`pre`, `during`, `post`).
+3. **Decide the day shape** (week-ahead, weekend, travel, conference, light, PTO/holiday, rest, dominant event, mixed, routine).
+4. **Fill exactly 3 plan slots.** Exceptions: a rest day returns 0 slots, and week-ahead, weekend or holiday return 1 state slot. Each slot carries an anchor event and phase, or is a "state" slot with no event.
+
+### 3.2 Callers and triggers
+
+| Caller | Trigger | Horizon | Live? | Citation |
+|---|---|---|---|---|
+| `generate-mastery-plan` → `buildPreferredJitV2Selection` | each Plan generation request (from the app, or from `build-executive-home-cards`; invocation detail in Part 6) | `DAY_OF_HORIZON_MS = 24·60·60·1000` ms | **Live** — hard-coded `JIT_V2_LIVE = true` | `generate-mastery-plan/index.ts:3642-3700, 6274-6299`; `_shared/plan/day-of-horizon.ts:15` |
+| `generate-mastery-plan` → `runJitV2Shadow` | same request, if `JIT_V2` is set to something other than `""`, `off`, `false` or `0` | default 24 h | Shadow only; writes `jit_shadow_v2_runs` and does not change output `[FLAGGED: JIT_V2]` | `index.ts:780-900, 6616-6630` |
+| `list-week-ahead-priorities` | Week Ahead picker request | `7·24·60·60·1000` ms | **Live** | `list-week-ahead-priorities/index.ts:446-457` |
+
+### 3.3 Step-by-step logic on the Plan path
+
+**Step 1 — Build inputs** (`buildPreferredJitV2Selection`, `index.ts:3642-3700`)
+- Each `req.calendarEvents` item that has `id`, `title` and `startTime` becomes a `JitContextCalendarRow`. `created_at` is set to `null`, which means the "short lead time" crisis rule never fires on this path, since it needs `createdAt`.
+- Goals are taken as follows:
+  - `growthIntentions` ← `req.leaderProfile.goals.declared`
+  - `practicePriorityTags` ← `[req.practicePriorityTag]`
+  - `coachGrowthAreas` ← `req.coachInsights` filtered to `type === "growth_area"`
+  - `protectGoals` ← `[]`
+- Timezone is `req.timezone ?? req.userTimezone ?? "UTC"`. The target date is `getLocalDateISO(req.timezoneOffset)`.
+
+**Step 2 — Load context** (`loadJitContextForEvents`, `_shared/jit/load-jit-context.ts:119-450`). Reads are done in this order, and every read fails open, so an error leaves that input empty:
+1. `profiles.email` and `created_at` → the user's own email domain and account age (`:127-146`).
+2. Attendee emails and organiser email, from `event_metadata.attendeeSignals` or `event_metadata` (`:93-117, 148-165`).
+3. `attendee_relationships` rows for those emails, skipping expired rows (`:167-187`).
+4. `event_priority_memory` (`:189-365`):
+   - 4a. Tag rows → sovereign tags and relationship replay.
+   - 4b. Memory delta on both keys.
+   - 4c. Scoped exclusions and recurring demotion.
+5. Domain heuristic for emails still without a role (`:367-373`).
+6. The latest `causality_findings.signal_summary` with `pattern_kind = 'cause_effect_v2'` (`:375-387`).
+7. `jit_preferences` → skip and follow-through counts per bucket (`:389-406`).
+8. Compose `SelectInputEvent[]` and `SelectContext` (`:408-449`).
+
+**Step 3 — Select** (`selectJitCandidates`, `_shared/jit/select-jit.ts:415-661`). Exactly as specified in §2.1. Returns:
+- `ranked[]`, sorted by importance, then Tactical, then Strategic, then soonest start;
+- `excluded[]`, each with a reason;
+- `tier`;
+- `crisisEvents[]`.
+
+**Step 4 — Persist an audit copy** (`persistJitV2Selection`, `index.ts:3561-3640`)
+- Deletes the user's previous rows in `jit_carousel_cards` with `card_type` in (`jit_v2_selection`, `jit_v2_excluded`), then inserts one row per ranked event and one per excluded event. All rows share a fresh `run_id`.
+- Ranked rows store:
+  - `final_score = importance`
+  - `rank_position`
+  - `selection_slot` = the largest of Immediate / Tactical / Strategic, after sorting by raw (unweighted) value
+  - `score_breakdown = components`
+  - `tier`
+  - `event_subcategory = bucket` `[DISCREPANCY]`: this column stores the legacy pattern-bucket label, not the A–J subcategory.
+- Failure is non-fatal and only logged.
+
+**Step 5 — Legacy-shaped scored list** (`getPreScoredEvents` → `scoreCalendarEventsFromSelectedCandidates`, `index.ts:3713-3795, 6305-6309`). For each ranked candidate:
+- drop it if `minutesUntil < 0` (already started) or if `getActionWindow(minutesUntil)` is `selection_only`. The windows are: ≤ 360 → `touch2`; ≤ 2880 → `touch1`; otherwise `selection_only` (`:3312-3318`);
+- set `score = importance`;
+- set `jitConfidenceBand`: ≥ 70 high, ≥ 40 medium, ≥ 20 low, otherwise none;
+- set `jitUrgencyHorizon`: `tactical` if `touch1`, else `immediate`;
+- write a context description, built from the bucket, role, pattern presence and time to start.
+
+**Step 6 — Plan-local filters and boosts on the scored list** (`index.ts:6310-6500`)
+- (a) **Force-arc categories.** From the latest `cause_effect_v2` `event_to_hrv` rows with `hrvDeltaPct ≤ −15`, and confidence absent, `strong` or `emerging`: every scored event whose bucket matches adds its category to `forceArcCategoryIds` (`:6310-6350`).
+- (b) **Cancellation suppression.** Event types in `jit_cancellation_memory` with `penalty_level ≥ 3` and `cancelled_at` within 60 days are removed. The comparison is against `scenario?.id || "general"` (`:6352-6390`).
+- (c) **User selections.** Events selected by the user or by slot replacement are marked `selectedByUser`. There is no score change (`:6398-6415`).
+- (d) **Week Ahead carry-over.** `score += 20` when the event matches a `weekly_plan_snapshots.priorities` entry by id, lowercased title or type key (`:6421-6466`).
+- (e) **24-hour ceiling.** Only events with `minutesUntil ≤ MVP_JIT_HORIZON_MINUTES` (1440, defined at `:7495`) are kept (`:6469-6471`).
+- (f) **Strategic boosts** (`:6474-6500`):
+  - +15 if the coach growth-area text appears in the title or scenario id;
+  - +10 if the practice priority tag appears;
+  - +10 if `|hrvCorrelation.avgDeviation| > 10`, using correlations with `count ≥ 2`.
+
+`[DISCREPANCY]` The boosts in (d) and (f) change only `ScoredEvent.score`. That field drives calendar pills (top 2, `:6512-6518`) and logs. It does **not** drive slot allocation. Slot allocation uses the v2 `importance` carried through `adaptV2Ranked` (Step 7). The comment at `:6417-6420` says the boost also feeds "the shared ranker's memoryDelta input"; the code does not do that.
+
+**Step 7 — Phase fan-out** (`index.ts:6539-6600` → `adaptV2Ranked`, `:3797-3880`)
+
+7a. **Exclusion filter.** `filteredEvents` is filtered again with `evaluateEventPriorityExclusion` (using `coarseEventType(title)` and `normalizeEventTypeKey(title)`), giving `preFilteredEvents`.
+
+7b. **Per-event fan-out.** For each ranked event that is still in `preFilteredEvents`:
+- `endMs` = the event's end, or start + 60 minutes if there is no end.
+- `enriched = enrichEvent(title, start, end)`. The event is skipped if it has no category, or if `subtype.classificationOnly` is true.
+- `declaredPhases` = the phases defined for that category in `EVENT_PHASE_MAP` (`_shared/events/event-phase-map.ts:28-80`):
+
+| Category | Phases |
+|---|---|
+| A | pre, post |
+| B | pre, post |
+| C | pre, post |
+| D | pre, post |
+| E | pre, during, post |
+| F | pre, during, post |
+| G | pre, during, post |
+| H | none |
+| I | post |
+| J | pre, post |
+
+  If there are no phases (H), the event is skipped.
+- `temporalPhase` = `post` if now ≥ end, `during` if now ≥ start, otherwise `pre`.
+- For each declared phase, `phaseForEvent(title, phase)` (`event-phase-map.ts:176-187`) must resolve a protocol combo; if it doesn't, that phase is skipped.
+- **Temporal penalty** (`:3833-3848`):
+
+| Current phase \ candidate phase | pre | during | post |
+|---|---|---|---|
+| **pre** | 0 | 0.3 | 0.6 |
+| **during** | 0.6 | 0 | 0.2 |
+| **post** | 0.7 | 0.3 | 0 |
+
+- `score = round((importance − penalty) × 10) / 10`.
+- `severity`: score ≥ 70 → high, ≥ 40 → medium, otherwise low.
+- `eligible = (phase === temporalPhase)`.
+- `comboKey = protocol.mode` from the resolved combo.
+
+7c. **Sort.** Candidates are sorted by score descending, then by `minutesUntilWindow` ascending.
+
+Note: the scored list (Step 5) drops events that have already started (`minutesUntil < 0`), and Step 7 keeps only events in that list. So on this path, an event in progress never contributes `during` or `post` candidates. `during` and `post` candidates still exist for future events: they are produced with penalty 0.3 / 0.6 against the current `pre` phase.
+
+**Step 8 — Structural day flags** (`deriveStructuralDayFlags`, `index.ts:8908-…`). These are computed from the calendar events, calendar load, user locale, explicit PTO, a week-ahead override and hydration, and the travel signal (`travelDaySignal`, `tripWindow`, `awayDistanceKm`). The output fields are: `hasTravelDay`, `hasConferenceDay`, `hasOffsiteDay`, `hasRestSignals`, `dayOfWeek`, `isWeekAhead`, `isPtoOrHoliday`, `isLightDay`, `realMeetingCount`, `isFullWorkingWeekend` and `isWeekendRestDay`. The derivation of each flag is in Part 5 (day type).
+
+**Step 9 — Slot allocation** (`allocatePlanSlots`, `_shared/jit/slot-allocator.ts:141-322`). It is called once at `index.ts:6720-6736`. It is called again inside `mergeWithLedger` (`index.ts:9487-9503`, reached from `:6916`) when an earlier plan for the day (the "ledger") exists. The decision order is first match wins, and the code comment says it must not be reordered (`:221-232`):
+
+```text
+ranked = rankedCandidates; top, second, third = ranked[0..2]
+1. isWeekAhead                                   → single state slot, dayShape 'week_ahead'
+2. isWeekendRestDay && !isFullWorkingWeekend     → single state slot, dayShape 'saturday'
+3. hasTravelDay && top && top.cat≠'G' && ∃G at idx>0
+                                                → full arc on the G event (its fan moved first), 'travel_day'
+4. hasTravelDay && (!top || top.cat=='G')         → full arc on G, 'travel_day'
+5. hasConferenceDay && top:
+     top.cat=='F'                                → full arc on F, 'conference_day'
+     ∃F at idx>0                                 → F fan moved first, full arc, 'conference_day'
+6. packedDay := realMeetingCount ≥ 2
+   isLightDay && !isWeekAhead && !packedDay      → buildLightDayResult
+7. isPtoOrHoliday                                → single state slot, 'holiday_pto'
+8. otherwise:
+   sameEventFan       = top exists and no candidate from a different event and |ranked|>1
+   topIsStructural    = top.cat ∈ {A,C,F,G} ∪ forceArcCategoryIds
+   dominantStructural = topIsStructural && (!second || sameEventFan || !differentEventCandidate)
+   dayShape = rest_day                    if hasRestSignals
+            = mixed_day                   if structuralSignals ≥ 2 (travel/conference/offsite count)
+                                             or (top.cat=='F' && second && third && differentEventCandidate)
+            = dominant_structural_event   if dominantStructural
+            = light_routine               if |ranked| ≤ 1
+            = mixed_day                   otherwise
+   mode = state (rest_day) | jit+state or state (light_routine) | full_arc (dominant) | jit+state
+   if rest_day → return slots: [], restDay: true, reason 'rest_day_no_priorities'
+   dominant & top.cat=='A' → [pre(top), board_protect_state (Steady), post(top)]
+   dominant & other        → [pre, during, post] picked from top event's own fan by best score per phase,
+                              with phases pruned by EVENT_PHASE_MAP and pruneTravelPhases
+   non-dominant            → [top, second, third] by array position
+```
+
+Slot construction details:
+- **`windowRole`** (`:324-334`) sets the default role of each slot from the readiness window:
+
+| Window | Slot 0 | Slot 1 | Slot 2 |
+|---|---|---|---|
+| morning | start_of_day | dominant_demand | recovery |
+| afternoon | current_priority | remaining_demand | close_of_day |
+| evening | current_priority | protect_tonight | tomorrow_prep |
+
+- **`makeSlot`** (`:577-645`):
+  - a candidate whose phase differs from the intended phase is dropped and the slot becomes a state slot;
+  - `arcLabel` comes from the phase (pre → Prepare, during → During, post → Recover). With no phase it comes from the role (start_of_day → Prepare; recovery or close_of_day → Recover; otherwise Steady);
+  - `allocationReason` is one of `ranked_candidate_{n}`, `state_fallback_no_meaningful_jit`, `state_fallback_phase_unavailable` or `rest_day_uses_state_only`.
+- **`buildNamedFullArcResult`** (`:527-575`) is used for travel and conference days. It takes the best-scoring candidate of the given category for each of pre / during / post. If the category is G and the anchor isn't long-haul, `during` becomes a state anchor (`pruneTravelPhases`, `:16-38`, using `enrichEvent().travelArc`, where long-haul is "pre-during-post").
+- **`buildLightDayResult`** (`:345-468`):
+  - if any ranked candidate has category A, B, C or G, the first one becomes the anchor for [pre, during, post], with reasons `light_day_single_commitment_prep`, `_hold` and `_debrief`;
+  - otherwise the 3 slots are state slots: [Prepare, Steady, Recover], with reasons `light_day_recovery_intention`, `_hold` and `_protect`.
+- **`buildSingleStateSlotResult`** (`:488-525`) returns one Steady slot. Its role is `close_of_day` if the preferred practice windows include evening, otherwise `state_anchor`. The reason gets the suffix `_evening` or `_morning`.
+
+**Step 10 — Ledger merge** (`mergeWithLedger`, `index.ts:9148-…`)
+- When an earlier plan exists for the day, its slots are kept ("sticky") or replaced ("refreshed") using the completion, cancellation and replacement rules (documented in Part 5).
+- Before the second allocation, the day-shape flags are forced to be mutually exclusive: if `isLightDay` is true together with any of travel, conference or packed, `isLightDay` is set to false (`:9468-9485`).
+- After it, refreshed slots take the second allocation's slot identity, while sticky slots keep their own and only take `mode` and `dayShape` (`:9504-9545`).
+
+**Step 11 — Content per slot.** Practice selection, why-lines (the LLM path) and snapshot persistence to `mastery_plan_snapshots` are documented in Part 5.
+
+### 3.4 Week Ahead path (live)
+
+`list-week-ahead-priorities/index.ts`:
+1. Loads events for now to now + 7 days, deduplicated across calendars.
+2. Drops noise events, and educational events the user didn't organise.
+3. Loads `onboarding_v8_responses.protection_goals` into `goals.protectGoals` (`:428-445`). This is the only path where the protect-goal multiplier can be other than 1.0.
+4. Calls `loadJitContextForEvents` and then `selectJitCandidates` with a 7-day horizon (`:446-457`).
+5. For each event it computes advisory tags (`:540-565`):
+
+| Tag | Condition |
+|---|---|
+| prior_priority | `memDelta ≥ 8` and `hasPriorDayPriority` |
+| pattern_based | `patternHit(title).score ≥ 10` |
+| known_relationship | any role other than unknown, from user_tag, memory_user_tag or llm |
+| high_stakes | category A, B or C |
+| historically_low_signal | `memDelta ≤ −10` or `hardDemote` |
+
+6. Sets the order score (`:567-575`):
+   - if the event was ranked: `orderScore = importance`;
+   - otherwise: 1000·prior_priority + 500·pattern_based + 10·stakesRank.
+7. Builds `scoreReasons` from the tag labels plus `selector fallback: <exclusion reason>`, truncated to 3 entries.
+8. Writes each row's resolved category back to the calendar event (`stampCalendarEventCategory`, with `resolvedBy: "week_ahead_resolver"` and `confidence: "medium"`). This is best-effort and its effect is covered in Part 4.
+
+`[DISCREPANCY]` The file header (`:18-19`) says "Soft per-category cap (4) … Take top 10 by importance". The code comment at `:612` says "No per-category cap, no top-N truncation. Return everything." The code that was read applies no cap.
+
+### 3.5 Every condition, threshold and timing rule (one table)
+
+| Rule | Value | Where |
+|---|---|---|
+| Plan selector horizon | 24 h | `day-of-horizon.ts:15` |
+| Week Ahead horizon | 7 d | `list-week-ahead-priorities/index.ts:456` |
+| Plan ceiling after scoring | 1440 min | `generate-mastery-plan/index.ts:7495, 6469` |
+| Action windows | ≤ 6 h touch2, ≤ 48 h touch1, otherwise excluded | `:3312-3318` |
+| Floor | 25 (Immediate, Tactical, tier-weighted, or sovereign ≥ 25) | `select-jit.ts:278, 577-586` |
+| Strategic gate | Immediate ≥ 25 | `:535` |
+| Crisis short-lead | created < 4 h before start (needs `createdAt`; null on the Plan path) | `:236-246` |
+| Crisis title shift | starts within 4 h | `:247-249` |
+| Cancellation suppression | `penalty_level ≥ 3` within 60 d | `generate-mastery-plan/index.ts:6355-6371` |
+| Force-arc | `event_to_hrv.hrvDeltaPct ≤ −15` | `:6326-6328` |
+| Temporal penalty | 0 / 0.2 / 0.3 / 0.6 / 0.7 | `:3833-3848` |
+| Candidate severity | ≥ 70 high, ≥ 40 medium | `:3862-3866` |
+| Packed day | realMeetingCount ≥ 2 | `slot-allocator.ts:233` |
+| Light-day anchor categories | A, B, C, G | `:360-363` |
+| Structural categories | A, C, F, G plus force-arc | `:249-250` |
+| Memory lookback | 90 d, 500 rows | `load-jit-context.ts:125`; `event-priority-memory.ts:173-186` |
+| Tier floors | 7 / 14 / 30 days | `maturity-tier.ts:35-38` |
+| Tier pattern ceilings | 0 / ≤2 / ≤5 / ≥6 | `:40-43` |
+| Mature pattern | n ≥ 3, confidence strong or emerging | `:60-61` |
+
+### 3.6 Interaction with other components
+
+| Component | Direction | What crosses |
+|---|---|---|
+| Event classifier (`enrichEvent` / `resolveEvent`) | → JIT | category, subtype, `stamp.dimensions` (relationship, direction, format, stakes, workContext), `travelArc`, `classificationOnly` (Part 4) |
+| Cause-effect engine (`causality_findings`) | → JIT | `signal_summary.event_to_hrv` / `event_to_rhr` (60-day) for pattern score, tier pattern count and force-arc (Part 4) |
+| Attendee resolver (`attendee_relationships`) | → JIT | role, source, confidence, expiry (Part 4) |
+| User signals (`event_priority_memory`, `jit_preferences`) | → JIT | memory delta, sovereign tags, exclusions, skip and follow-through counts (§2.6) |
+| Day-type logic (`light-day.ts`, travel SSOT) | → JIT | structural flags for the allocator (Part 5) |
+| MRS window | → JIT | `mrsWindow` → slot default roles (Part 3) |
+| Behaviour rules (`deriveSlotBoosts`) | ↔ Plan | slot boosts consumed by the Plan's practice selection, not by `importance` (Part 5) |
+| Smart Nudges | ← JIT | `crisisEvents` are returned in `SelectResult`. `[UNCERTAIN]` Whether smart-nudges reads them: smart-nudges does not import `select-jit.ts` (Part 5). |
+| `jit_carousel_cards` | ← JIT | audit rows (Step 4) |
+
+### 3.7 Worked example — one full Plan run
+
+Inputs are the same as §2.11, plus:
+- local time is **Tuesday 08:00**, morning window;
+- no travel, conference or offsite; not PTO; not week-ahead;
+- `realMeetingCount = 3`;
+- E1 "Board meeting Q3" 10:00–12:00; E2 "Client pitch – Acme" 15:00–16:00; E3 "Weekly team sync" 09:00–09:30; E4 "Dentist" 17:00;
+- no earlier plan for the day; nothing in `jit_cancellation_memory`; no `weekly_plan_snapshots` priorities.
+
+**Step 3 (select).**
+- Ranked: E2 = 58.50, E1 = 56.15.
+- Excluded: E3 (`below_min_immediate`), E4 (`personal_noise`).
+- Tier: T3.
+
+**Step 4.** `jit_carousel_cards` gets 4 rows. Ranked rows have `selection_slot` = `immediate` for both events:
+- E2: Immediate 45 > Tactical 0 > Strategic 0;
+- E1: Immediate 80 > Tactical 37 > Strategic 12.
+
+**Step 5.**
+- E1: minutesUntil 120 → touch2, score 56.15, band medium.
+- E2: minutesUntil 420 → touch1, score 58.5, band medium.
+
+**Step 6.**
+- (a) Force-arc: the Board bucket has `hrvDeltaPct = −12`, which is above −15 → `forceArcCategoryIds = ∅`.
+- (b)–(f): no change to slot inputs.
+
+**Step 7 (fan-out).** The temporal phase is `pre` for both events. Categories A and B both declare pre and post.
+
+| Candidate | importance | penalty | score = round((imp − pen)·10)/10 | severity | eligible |
+|---|---|---|---|---|---|
+| E2 / pre | 58.50 | 0 | 58.5 | medium | yes |
+| E2 / post | 58.50 | 0.6 | 57.9 | medium | no |
+| E1 / pre | 56.15 | 0 | 56.2 (561.5 → 562) | medium | yes |
+| E1 / post | 56.15 | 0.6 | 55.6 (555.5 → 556) | medium | no |
+
+Sorted order: E2/pre, E2/post, E1/pre, E1/post.
+
+**Step 9 (allocate).**
+- Not week-ahead or weekend; no travel or conference.
+- `packedDay = (3 ≥ 2) = true`, so the light-day branch is skipped. Not PTO.
+- `top` = E2/pre (category B). `differentEventCandidate` = E1/pre, so `sameEventFan = false`.
+- `topIsStructural = false`: B is not in {A, C, F, G}, and the force-arc set is empty.
+- So `dominantStructural = false`.
+- `hasRestSignals = false`; structural signals = 0; top is not F; `|ranked| = 4 > 1` → **dayShape `mixed_day`**, **mode `jit+state`**.
+- Non-dominant, so slots are filled by array position, with morning roles:
+
+| Slot | Candidate | slotRole | arcLabel | allocationReason |
+|---|---|---|---|---|
+| 0 | E2 / pre | start_of_day | Prepare | ranked_candidate_1 |
+| 1 | E2 / post | dominant_demand | Recover | ranked_candidate_2 |
+| 2 | E1 / pre | recovery | Prepare | ranked_candidate_3 |
+
+What follows directly from the code:
+- The Board meeting (higher Immediate, strong learned pattern) gets only slot 2, and that slot carries the role `recovery` while the label says "Prepare". This happens because the non-dominant branch fills slots by array position.
+- E1/post never reaches a slot.
+
+**Counterfactual 1.** Remove the High tag from E2. E2's importance becomes 13.5, which is below 25, but its Immediate of 45 still passes the floor. Sorted: E1/pre 56.2, E1/post 55.6, E2/pre 13.5, E2/post 12.9. `top` = E1/pre (category A, structural). `differentEventCandidate` = E2 exists and `second` exists, so `dominantStructural = (!second || sameEventFan || !differentEventCandidate) = false`. The day shape is still `mixed_day`. Slots: [E1/pre, E1/post, E2/pre].
+
+**Counterfactual 2.** If E2 were also absent, `sameEventFan` would be true. The day would become `dominant_structural_event` with the category-A pattern [pre(E1), board_protect_state "Steady", post(E1)], mode `full_arc`.
+
+---
+
+*End of Part 2. Parts 3–7 follow in this file.*
