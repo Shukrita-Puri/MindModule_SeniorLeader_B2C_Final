@@ -646,7 +646,15 @@ export function validateCalendarTruth(
     const cleaned = raw.replace(/\s*(?:am|pm)\s*$/i, "").trim();
     const norm = normaliseClock(cleaned);
     if (!/^\d{2}:\d{2}$/.test(norm)) continue;
-    if (!allowedTimes.has(norm)) {
+    if (allowedTimes.has(norm)) continue;
+    // Only police times stated as a meeting/event time; wind-down or
+    // routine times ("by 22:00") are not calendar claims.
+    const idx = text.indexOf(raw);
+    const before = text.slice(Math.max(0, idx - 40), idx).toLowerCase();
+    const after = text.slice(idx + raw.length, idx + raw.length + 20).toLowerCase();
+    const eventContext = /\b(meeting|call|session|sync|review|catch[- ]?up|stand[- ]?up|interview|pitch|presentation|board|demo|workshop|keynote|1:1|introductions?)\b/.test(before) ||
+      /^\s*(meeting|call|session|begins|starts|kicks off)\b/.test(after);
+    if (eventContext) {
       return {
         ok: false,
         reason:
@@ -662,10 +670,12 @@ export function validateCalendarTruth(
   ]
     .join(" · ")
     .toLowerCase()
-    .replace(/_/g, " ");
+    .replace(/[_\-\/]+/g, " ")
+    .replace(/\s+/g, " ");
+  const compactHay = haystack.replace(/\s+/g, "");
   for (const [pattern, evidenceToken] of MEETING_KIND_TERMS) {
     if (!pattern.test(text)) continue;
-    if (!haystack.includes(evidenceToken)) {
+    if (!haystack.includes(evidenceToken) && !compactHay.includes(evidenceToken.replace(/\s+/g, ""))) {
       return {
         ok: false,
         reason:
