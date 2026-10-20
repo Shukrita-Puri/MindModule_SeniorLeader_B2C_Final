@@ -20,3 +20,11 @@ Deno.test("accepts real title, real time, real kind", () => {
 Deno.test("no truth supplied leaves behaviour unchanged", () => {
   assert(validateCalendarTruth("your strategy session at 10:30", null).ok);
 });
+Deno.test("hyphenated title supports 'catch up' wording", () => {
+  const r = validateCalendarTruth("Your catch-up at 09:30 sets the tone.", { allowedClockTimes: ["09:30"], allowedTitles: ["Catch-up with Melanie"], allowedDescriptors: [] });
+  assert(r.ok, r.reason);
+});
+Deno.test("non-meeting wind-down time is allowed", () => {
+  const r = validateCalendarTruth("Close the laptop by 21:30 to protect recovery.", truth);
+  assert(r.ok, r.reason);
+});
