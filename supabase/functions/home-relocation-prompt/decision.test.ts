@@ -79,3 +79,25 @@ Deno.test('updating does not count as a Not now deferral', () => {
 Deno.test('no location evidence means no prompt', () => {
   assertEquals(decideRelocation({ ...base, samples: [] }).eligible, false);
 });
+Deno.test('saved choices survive serialization and the eight-week snooze boundary', () => {
+  const first = JSON.parse(JSON.stringify(respondToPrompt({ anchor }, 'not_now', now)));
+  const futureSamples = base.samples.map(s => ({ ...s,
+    captured_at: new Date(Date.parse(s.captured_at) + 56 * DAY).toISOString(),
+    created_at: new Date(Date.parse(s.created_at) + 56 * DAY).toISOString(),
+  }));
+  assertEquals(decideRelocation({ ...base, now: now + 56 * DAY - 1, state: first }).reason, 'snoozed');
+  assertEquals(decideRelocation({ ...base, now: now + 56 * DAY, samples: futureSamples, state: first }).eligible, true);
+  const kept = JSON.parse(JSON.stringify(respondToPrompt({ anchor }, 'keep_home', now)));
+  assertEquals(decideRelocation({ ...base, now: now + 56 * DAY, samples: futureSamples, state: kept }).eligible, false);
+});
+Deno.test('seven-day home reset persists on the next check without undoing Keep Home', () => {
+  const kept = respondToPrompt({ anchor }, 'keep_home', now);
+  const homeSamples = [...samples.filter(s => Date.parse(s.captured_at) < now - 7 * DAY),
+    ...Array.from({ length: 7 }, (_, i) => sample(i + 1, true)), sample(0)];
+  const reset = decideRelocation({ ...base, samples: homeSamples, state: kept });
+  const reopened = decideRelocation({ ...base, now: now + DAY,
+    state: JSON.parse(JSON.stringify(reset.state)), samples: homeSamples });
+  assertEquals(reopened.eligible, false);
+  assertEquals(reopened.state.resetAt, new Date(now).toISOString());
+  assertEquals(reopened.state.suppressed, true);
+});
