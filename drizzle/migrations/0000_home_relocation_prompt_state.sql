@@ -1,0 +1,2 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS relocation_prompt_state jsonb NOT NULL DEFAULT '{}'::jsonb;
+COMMENT ON COLUMN public.profiles.relocation_prompt_state IS 'Cross-device home relocation popup deferrals, keep-home acknowledgement and evidence reset anchor; written only through authenticated Edge Functions.';
