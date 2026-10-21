@@ -38,6 +38,8 @@ import EventOutcomeFeedbackModal from "@/components/home/EventOutcomeFeedbackMod
 import { useEventOutcomePrompt } from "@/hooks/useEventOutcomePrompt";
 import ConnectionRecoveryPrompt from "@/components/home/ConnectionRecoveryPrompt";
 import { useConnectionRecoveryPrompt } from "@/hooks/useConnectionRecoveryPrompt";
+import HomeRelocationPrompt from '@/components/profile/HomeRelocationPrompt';
+import { useHomeRelocationPrompt } from '@/hooks/useHomeRelocationPrompt';
 
 import { getTimeLabel, getDateLabel } from "@/components/home/timeLabel";
 import { useHomeClock } from '@/hooks/useHomeClock';
@@ -80,6 +82,7 @@ const ExecutiveHome = () => {
   const dryPostEvent = searchParams.get('dryPostEvent') === '1';
   const eventOutcome = useEventOutcomePrompt(true, dryPostEvent);
   const connectionRecovery = useConnectionRecoveryPrompt(true);
+  const homeRelocation = useHomeRelocationPrompt();
 
   const refreshCards = useExecutiveHomeCardsRefresh();
   const { data: mrsSnapshot } = useMrsSnapshot();
@@ -449,6 +452,12 @@ const ExecutiveHome = () => {
               onSkip={eventOutcome.skip}
             />
           )}
+
+          {!planFeedback && !showGuide && !historicalBriefId && !eventOutcome.candidate &&
+            !connectionRecovery.prompt && homeRelocation.prompt && (
+              <HomeRelocationPrompt prompt={homeRelocation.prompt} saving={homeRelocation.saving}
+                error={homeRelocation.error} respond={homeRelocation.respond} />
+            )}
 
         </SidebarInset>
       </div>

@@ -4899,6 +4899,7 @@ export type Database = {
           referral_code_used: string | null
           relocation_candidate_tz: string | null
           relocation_first_detected_at: string | null
+          relocation_prompt_state: Json
           self_check_ins_enabled: boolean
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -4993,6 +4994,7 @@ export type Database = {
           referral_code_used?: string | null
           relocation_candidate_tz?: string | null
           relocation_first_detected_at?: string | null
+          relocation_prompt_state?: Json
           self_check_ins_enabled?: boolean
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -5087,6 +5089,7 @@ export type Database = {
           referral_code_used?: string | null
           relocation_candidate_tz?: string | null
           relocation_first_detected_at?: string | null
+          relocation_prompt_state?: Json
           self_check_ins_enabled?: boolean
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null

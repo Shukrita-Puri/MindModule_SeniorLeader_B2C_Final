@@ -92,6 +92,9 @@ export default function HomeLocationCard() {
 
   useEffect(() => {
     void loadStatus();
+    if (window.location.hash === '#home-location') {
+      document.getElementById('home-location')?.scrollIntoView({ block: 'start' });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -145,7 +148,7 @@ export default function HomeLocationCard() {
   };
 
   return (
-    <Card>
+    <Card id="home-location" className="scroll-mt-24">
       <CardHeader>
         <CardTitle className="text-[15px] font-sans font-medium flex items-center gap-2">
           <Home className="h-4 w-4 text-muted-foreground" /> Home location

@@ -11,7 +11,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { verifyAuth0JWT } from "../_shared/auth.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
-import { tzOffsetDiffHours, tzToCountry } from "../_shared/plan/tz-to-country.ts";
+import { tzToCountry } from "../_shared/plan/tz-to-country.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -187,77 +187,8 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Best-effort sustained-relocation detection. Never blocks login.
-      // Convergence clear: back home means any stale flag goes away.
-      if (clientCurrentTz === existingTz?.home_timezone) {
-        try {
-          await supabaseAdmin
-            .from("profiles")
-            .update({
-              possible_relocation_detected: false,
-              relocation_candidate_tz: null,
-            })
-            .eq("id", userId)
-            .eq("possible_relocation_detected", true);
-        } catch (e) {
-          console.warn("[sync-profile] relocation convergence clear failed (non-fatal)", e);
-        }
-      }
-
-      if (
-        existingTz?.home_timezone &&
-        clientCurrentTz !== existingTz.home_timezone
-      ) {
-        const diffHours = tzOffsetDiffHours(clientCurrentTz, existingTz.home_timezone);
-        if (diffHours > 3) {
-          try {
-            const { data: ts } = await supabaseAdmin
-              .from("travel_state")
-              .select("last_timezone_change_at, state")
-              .eq("user_id", userId)
-              .maybeSingle();
-            // Primary clock is the login-level stamp; travel_state is only a
-            // fallback for users flagged before that column existed.
-            const primaryChangeDate = (existingTz as any)?.current_timezone_changed_at
-              ? new Date((existingTz as any).current_timezone_changed_at)
-              : null;
-            const secondaryChangeDate = ts?.last_timezone_change_at
-              ? new Date(ts.last_timezone_change_at)
-              : null;
-            const earliestChangeDate = primaryChangeDate ?? secondaryChangeDate;
-            const daysSinceChange = earliestChangeDate
-              ? (Date.now() - earliestChangeDate.getTime()) / 86_400_000
-              : null;
-            const sustainedRelocation =
-              daysSinceChange !== null &&
-              daysSinceChange > 30 &&
-              ts?.state !== "en_route" &&
-              ts?.state !== "returning";
-            if (sustainedRelocation) {
-              const relocatedCountry = tzToCountry(clientCurrentTz);
-              // Keep the pending upsert in sync so the home-timezone backfill
-              // above cannot clobber the relocation-derived country.
-              if (relocatedCountry && !(existingTz as any)?.country) {
-                upsertData.country = relocatedCountry;
-              }
-              await supabaseAdmin
-                .from("profiles")
-                .update({
-                  possible_relocation_detected: true,
-                  relocation_candidate_tz: clientCurrentTz,
-                  relocation_first_detected_at: new Date().toISOString(),
-                  // Only fill a null country — never overwrite a confirmed one.
-                  ...(relocatedCountry && !(existingTz as any)?.country
-                    ? { country: relocatedCountry }
-                    : {}),
-                })
-                .eq("id", userId);
-            }
-          } catch (e) {
-            console.warn("[sync-profile] relocation check failed (non-fatal)", e);
-          }
-        }
-      }
+      // Relocation prompting is evaluated by home-relocation-prompt on app
+      // open using confirmed location days, not timezone offsets.
     }
 
     // Only set display_name on initial profile creation
