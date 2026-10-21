@@ -1,5 +1,5 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
+import { corsHeaders } from 'npm:@supabase/supabase-js@2.118.0/cors';
 import { z } from 'npm:zod@3';
 import { authenticateRequest } from '../_shared/auth.ts';
 import { classifyTripEvidence, parseTrips } from '../_shared/travel/trip-windows.ts';
