@@ -11,6 +11,7 @@
   box-shadow: var(--home-prompt-shadow);
 }
 .home-relocation-copy { color: hsl(var(--home-prompt-copy)); }
+.home-relocation-panel h2, .home-relocation-panel > p:first-child { color: hsl(var(--home-prompt-text)); }
 .home-relocation-primary, .home-relocation-primary:hover {
   background: hsl(var(--home-prompt-primary));
   color: hsl(var(--home-prompt-primary-text));
