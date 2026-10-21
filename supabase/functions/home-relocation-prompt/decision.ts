@@ -65,7 +65,7 @@ export function decideRelocation(input: {
     lastDay = day;
   }
   if (resetDay) {
-    state = { anchor, resetAt: new Date(input.now).toISOString() };
+    state = { ...state, anchor, resetAt: new Date(input.now).toISOString() };
     return { eligible: false, reason: 'seven_days_home', awayDays: 0, state };
   }
   let awayDays = 0;

@@ -92,6 +92,9 @@ export default function HomeLocationCard() {
 
   useEffect(() => {
     void loadStatus();
+    if (window.location.hash === '#home-location') {
+      document.getElementById('home-location')?.scrollIntoView({ block: 'start' });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
