@@ -92,6 +92,10 @@ Deno.serve(async (req) => {
         home_lat: null,
         home_lng: null,
         home_location_set_at: null,
+        relocation_prompt_state: {},
+        possible_relocation_detected: false,
+        relocation_candidate_tz: null,
+        relocation_first_detected_at: null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", userId);
@@ -128,6 +132,10 @@ Deno.serve(async (req) => {
     home_lat: decision.lat,
     home_lng: decision.lng,
     home_location_set_at: now,
+    relocation_prompt_state: {},
+    possible_relocation_detected: false,
+    relocation_candidate_tz: null,
+    relocation_first_detected_at: null,
     updated_at: now,
   };
   if (decision.timezone) {

@@ -21,7 +21,6 @@ import { CheckInVisibilityGuard } from "./components/CheckInVisibilityGuard";
 import { PushNotificationProvider, PushNotificationActionHandler } from "./components/PushNotificationProvider";
 import { AppUsageTracker } from "./components/AppUsageTracker";
 import { AuthProvider } from "./hooks/useAuth";
-import RelocationPromptBanner from "./components/profile/RelocationPromptBanner";
 import { ImpersonationProvider } from "./hooks/useImpersonation";
 import ImpersonationBanner from "./components/admin/ImpersonationBanner";
 import {
@@ -327,7 +326,6 @@ const Layout = () => {
     <AuthProvider>
       <ImpersonationProvider>
         <ImpersonationBanner />
-        <RelocationPromptBanner />
         <ScrollToTop />
         <TravelWatcher />
         <AppleCalendarWatcher />

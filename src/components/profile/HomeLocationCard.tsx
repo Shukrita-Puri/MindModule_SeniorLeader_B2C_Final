@@ -145,7 +145,7 @@ export default function HomeLocationCard() {
   };
 
   return (
-    <Card>
+    <Card id="home-location" className="scroll-mt-24">
       <CardHeader>
         <CardTitle className="text-[15px] font-sans font-medium flex items-center gap-2">
           <Home className="h-4 w-4 text-muted-foreground" /> Home location

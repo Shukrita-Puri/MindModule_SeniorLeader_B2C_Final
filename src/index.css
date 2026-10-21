@@ -3,6 +3,28 @@
 @tailwind components;
 @tailwind utilities;
 
+.home-relocation-overlay { background: hsl(var(--home-prompt-overlay)); }
+.home-relocation-panel {
+  background: hsl(var(--home-prompt-panel));
+  border-color: hsl(var(--home-prompt-border));
+  color: hsl(var(--home-prompt-text));
+  box-shadow: var(--home-prompt-shadow);
+}
+.home-relocation-copy { color: hsl(var(--home-prompt-copy)); }
+.home-relocation-primary, .home-relocation-primary:hover {
+  background: hsl(var(--home-prompt-primary));
+  color: hsl(var(--home-prompt-primary-text));
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+.home-relocation-secondary, .home-relocation-secondary:hover {
+  background: transparent;
+  border-color: hsl(var(--home-prompt-border));
+  color: hsl(var(--home-prompt-text));
+}
+.home-relocation-keep, .home-relocation-keep:hover { color: hsl(var(--home-prompt-copy)); }
+
 @layer base {
   :root {
     /* Architectural Elegance Design System */
@@ -59,6 +81,16 @@
     --ring: 25 15% 55%;              /* Taupe focus ring */
     
     --radius: 1rem;                  /* Refined radius */
+
+    /* Executive glass prompts: matching the existing connection check. */
+    --home-prompt-overlay: 0 0% 0% / 0.4;
+    --home-prompt-panel: 0 0% 0% / 0.55;
+    --home-prompt-border: 0 0% 100% / 0.3;
+    --home-prompt-text: 0 0% 100%;
+    --home-prompt-copy: 0 0% 100% / 0.85;
+    --home-prompt-primary: 0 0% 100%;
+    --home-prompt-primary-text: 0 0% 0%;
+    --home-prompt-shadow: 0 25px 50px -12px hsl(0 0% 0% / 0.25);
 
     /* Elevated Warm Taupe System */
     --taupe: 25 15% 55%;             /* #9B8B7E base */
