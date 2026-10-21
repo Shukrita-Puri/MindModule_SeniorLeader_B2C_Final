@@ -27,13 +27,16 @@ Deno.test('100km boundary and nearer locations do not count as away', () => {
   const near = base.samples.map(s => ({ ...s, lat: 51.51, lng: -0.1 }));
   assertEquals(decideRelocation({ ...base, samples: near }).awayDays, 0);
 });
-Deno.test('six-day home visit does not reset the away count', () => {
-  const briefHome = [...samples.filter(s => Date.parse(s.captured_at) < now - 6 * DAY),
-    ...Array.from({ length: 6 }, (_, i) => sample(i + 1, true)), sample(0)];
-  const result = decideRelocation({ ...base, samples: briefHome });
-  assertEquals(result.awayDays, 50);
-  assertEquals(result.eligible, true);
-});
+for (let visitDays = 1; visitDays <= 6; visitDays++) {
+  Deno.test(`${visitDays}-day home visit does not reset the away count`, () => {
+    const briefHome = [...samples.filter(s => Date.parse(s.captured_at) < now - visitDays * DAY),
+      ...Array.from({ length: visitDays }, (_, i) => sample(i + 1, true)), sample(0)];
+    const result = decideRelocation({ ...base, samples: briefHome });
+    assertEquals(result.awayDays, 56 - visitDays);
+    assertEquals(result.eligible, true);
+    assertEquals(result.state.resetAt, undefined);
+  });
+}
 Deno.test('seven consecutive confirmed home days clear and restart the evidence clock', () => {
   const result = decideRelocation({ ...base, samples: [...samples.filter(s => Date.parse(s.captured_at) < now - 7 * DAY),
     ...Array.from({ length: 7 }, (_, i) => sample(i + 1, true)), sample(0)] });
