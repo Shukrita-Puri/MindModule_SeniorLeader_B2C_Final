@@ -20,7 +20,7 @@ function getServiceClient(): SupabaseClient | null {
     const url = Deno.env.get("SUPABASE_URL");
     const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!url || !key) return null;
-    _client = createClient(url, key, { auth: { persistSession: false } });
+    _client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
     return _client;
   } catch {
     return null;

@@ -23,13 +23,17 @@ export async function runInShadow<TResult>(
   const started = Date.now();
   const timeoutMs = options.timeoutMs ?? 1500;
 
+  let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
   try {
     const shadowPromise = Promise.resolve(options.runShadow());
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("shadow_timeout")), timeoutMs)
-    );
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutTimer = setTimeout(() => reject(new Error("shadow_timeout")), timeoutMs);
+    });
 
     const result = await Promise.race([shadowPromise, timeoutPromise]);
+    // Clear the guard timer once the shadow wins the race — an uncleared
+    // timer keeps the isolate busy and trips Deno's test leak detector.
+    clearTimeout(timeoutTimer);
     const durationMs = Date.now() - started;
 
     const legacyCat = options.getLegacyCategory();

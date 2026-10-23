@@ -24,12 +24,32 @@ type: architecture
     `domains/interventions` with the same enriched catalogue via
     `PracticeAdapter.adapt`, comparing per-slot legacy practice IDs vs
     shadow chosen IDs as `slotIndex:id` joined strings).
+  - `sync-oura`: `L0_PARSERS_DOMAIN` (domains/wearable
+    `ouraSleepEfficiencyFromSession` vs legacy inline efficiency logic in
+    `buildDailyRows`; shadow context passed in from the handler).
+  - `sync-apple-calendar` / `sync-calendar`: `L0_PARSERS_DOMAIN`
+    (domains/calendar `mergeCalendarEvents` vs legacy collapse + dedupe;
+    compared as `events:<count>` categories per sync batch).
 - Env flags set to `shadow` in the backend: AH_ENGINE_MODE,
   L0_PARSERS_DOMAIN, SPINE_DAY_PROFILE, SPINE_READ, L5_SIGNALS,
-  L5_GUARDRAILS, L5_VOICE, L3_SELECTOR. All except L0_PARSERS_DOMAIN are
-  read by code today; L0_PARSERS_DOMAIN is inert until wired into the
-  calendar/wearable sync functions.
+  L5_GUARDRAILS, L5_VOICE, L3_SELECTOR. All 8 are read by live code.
 - Invariants: legacy output is always returned to the client; shadow runs
   are non-blocking; parity logs carry hashed IDs and reason codes only —
   never titles, names, or personal content.
-- Tests: `supabase/functions/_shared/shadow/domain-shadow.test.ts`.
+- Operational rules (2026-10-23):
+  - `runInShadow` must clear its guard timer after the race settles
+    (leak fix).
+  - Service-role Supabase clients in shared modules must use
+    `auth: { persistSession: false, autoRefreshToken: false }` — otherwise
+    auth-js starts an interval that leaks in tests and isolates.
+  - `collapseAppleMultiSource` lives in
+    `_shared/rules/apple-source-collapse.ts` (implementation + re-export
+    shim); domains/calendar does NOT contain it. Mirrored to
+    src/utils/rules/apple-source-collapse.ts.
+  - LLM fallback: `callAIText` in `_shared/anthropic.ts` falls back to the
+    Lovable gateway on Anthropic 400/401/402/429, credit-balance errors,
+    timeouts/aborts, network errors, and 5xx. No customer request may die
+    on an unhandled Anthropic exception; deterministic template banks are
+    the last resort.
+- Tests: `supabase/functions/_shared/shadow/domain-shadow.test.ts`,
+  `supabase/functions/_shared/anthropic-fallback.test.ts`.

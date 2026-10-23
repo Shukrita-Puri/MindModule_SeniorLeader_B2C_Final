@@ -20,6 +20,8 @@ import {
   type ReconciliationRecord,
 } from "../_shared/wearable/canonical.ts";
 import { atomicMergeUpsertWearable } from "../_shared/wearable/atomic-upsert.ts";
+import { ouraSleepEfficiencyFromSession } from "../_shared/domains/wearable/index.ts";
+import { isDomainShadowEnabled, runDomainShadow } from "../_shared/shadow/domain-shadow.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,6 +140,10 @@ function buildDailyRows(opts: {
   sleep?: { data?: Array<{ day?: string; bedtime_start?: string; total_sleep_duration?: number; deep_sleep_duration?: number; rem_sleep_duration?: number; time_in_bed?: number; efficiency?: number; average_hrv?: number; average_heart_rate?: number; lowest_heart_rate?: number }> };
   daily_readiness?: { data?: Array<{ day: string; contributors?: { resting_heart_rate?: number; hrv_balance?: number } }> };
   heartrate?: { data?: Array<{ timestamp: string; bpm: number; source?: string }> };
+  /** L0 shadow context: when L0_PARSERS_DOMAIN=shadow, the pure
+   *  domains/wearable efficiency calculator runs beside the legacy inline
+   *  logic and the parity diff is logged. Legacy values still persist. */
+  shadow?: { userId: string; traceId: string };
 }): Array<Record<string, unknown>> {
   const byDay = new Map<string, Record<string, unknown>>();
   const get = (day: string): Record<string, unknown> => {
@@ -179,6 +185,20 @@ function buildDailyRows(opts: {
       typeof s.total_sleep_duration === "number"
     ) {
       r.sleep_efficiency = Math.max(0, Math.min(100, Math.round((s.total_sleep_duration / s.time_in_bed) * 100)));
+    }
+    // L0 shadow: domains/wearable calculator vs the legacy inline logic above.
+    if (opts.shadow && isDomainShadowEnabled("L0_PARSERS_DOMAIN")) {
+      const legacyEff = (r.sleep_efficiency as number | undefined) ?? null;
+      runDomainShadow({
+        surface: "l0_wearable_sleep_efficiency",
+        userId: opts.shadow.userId,
+        itemId: `oura:${day}`,
+        traceId: `${opts.shadow.traceId}:${day}`,
+        runShadow: () => ouraSleepEfficiencyFromSession(s),
+        getLegacyCategory: () => legacyEff == null ? "eff:null" : `eff:${legacyEff}`,
+        extractShadowCategory: (v) => v == null ? "eff:null" : `eff:${v}`,
+        timeoutMs: 500,
+      });
     }
   }
 
@@ -395,6 +415,7 @@ Deno.serve(async (req) => {
       sleep: sleep as never,
       daily_readiness: daily_readiness as never,
       heartrate: heartrate as never,
+      shadow: { userId, traceId: crypto.randomUUID() },
     });
 
     if (rows.length === 0) {
