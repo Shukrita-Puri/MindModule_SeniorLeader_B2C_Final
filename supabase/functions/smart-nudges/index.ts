@@ -89,6 +89,16 @@ import {
   violatesCopyContractV8,
   violatesTruthContract,
 } from "./copy-contract.ts";
+// Shadow domain wiring (Spine Stage 1-2): domain engines run beside the
+// legacy path via runInShadow — non-blocking, zero user-facing impact.
+import {
+  isDomainShadowEnabled,
+  runDomainShadow,
+} from "../_shared/shadow/domain-shadow.ts";
+import { evaluateGuardrails as evaluateDomainGuardrails } from "../_shared/domains/guardrails/index.ts";
+import { evaluateBehaviourSignals as evaluateDomainBehaviourSignals } from "../_shared/domains/behaviours/index.ts";
+import { validateCopy as validateDomainCopy } from "../_shared/domains/voice/index.ts";
+import { assembleContext as assembleDomainContext } from "../_shared/domains/context/index.ts";
 import {
   firstWeekendDayForHomeCountry,
   getFallbackNudgeOneJitCopy,
@@ -3306,12 +3316,17 @@ ${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at
   // this window, AND we still need `notificationIsProduct` (the nudge-only
   // rule) which the Brief's snapshot does not carry.
   let behaviourPromptBlock = '';
+  // Legacy active signal IDs, captured for the L5_SIGNALS shadow comparison.
+  let legacyBehaviourSignalIds: string[] = [];
   try {
     if (ctx.briefBehaviour?.taxonomyBlock) {
       behaviourPromptBlock += ctx.briefBehaviour.taxonomyBlock;
     }
     if (ctx.briefBehaviour?.promptBlockBrief) {
       behaviourPromptBlock += ctx.briefBehaviour.promptBlockBrief;
+      legacyBehaviourSignalIds = (ctx.briefBehaviour?.flagsBrief ?? [])
+        .map((f) => f.rule)
+        .filter(Boolean);
       console.log(
         `[smart-nudges] applied brief snapshot sig=${ctx.briefBehaviour.signatureHash}`,
       );
@@ -3380,9 +3395,41 @@ ${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at
         behaviourPromptBlock += wiring.promptBlock;
         console.log("[smart-nudges] applied evaluateForScope fallback (no brief snapshot)");
       }
+      legacyBehaviourSignalIds = (wiring?.flags ?? []).map((f) => f.rule);
     }
   } catch (e) {
     console.warn("[smart-nudges] behaviour wiring skipped:", e);
+  }
+
+  // ── L5_SIGNALS (shadow): domain behaviour signals vs legacy flags ──
+  // Zero user-facing impact: the legacy prompt block above is unchanged.
+  // The parity log compares active signal IDs only — no titles or PII.
+  if (isDomainShadowEnabled("L5_SIGNALS") && supabase) {
+    const legacyIds = [...legacyBehaviourSignalIds].sort().join("|") ||
+      "none";
+    runDomainShadow({
+      surface: "smart-nudges:L5_SIGNALS",
+      userId: ctx.userId,
+      itemId: `${ctx.todayStr}:${ctx.briefWindow}`,
+      traceId: crypto.randomUUID(),
+      runShadow: async () => {
+        const bundle = await assembleDomainContext(
+          // The assembler only needs a minimal query surface; the full
+          // supabase-js client type is too deep for the checker here.
+          supabase as unknown as Parameters<typeof assembleDomainContext>[0],
+          {
+            userId: ctx.userId,
+            localDate: ctx.todayStr,
+            windowName: ctx.briefWindow as "morning" | "afternoon" | "evening",
+          },
+        );
+        return evaluateDomainBehaviourSignals(bundle);
+      },
+      getLegacyCategory: () => legacyIds,
+      extractShadowCategory: (signals) =>
+        signals.filter((s) => s.fired).map((s) => s.name).sort().join("|") ||
+        "none",
+    });
   }
 
   // Load shape (read-only, render-gated). Silent on any failure or when no
@@ -7010,6 +7057,60 @@ serve(async (req) => {
         notif.copy.body,
         notif.v8Ctx,
       );
+
+      // ── L5_VOICE + L5_GUARDRAILS (shadow) ──
+      // Domain engines run beside the legacy V8/truth gates; the send/skip
+      // outcome below is unchanged. The parity log records verdicts only.
+      const legacySuppressedAtFinalGate = !!finalViolation &&
+        !(isLowContextStaticFallbackVariant(notif.copy.variantId) &&
+          isNamedContextViolation(finalViolation));
+      if (isDomainShadowEnabled("L5_VOICE")) {
+        const legacyVoice = finalViolation ?? "clean";
+        const bodyForShadow = notif.copy.body;
+        runDomainShadow({
+          surface: "smart-nudges:L5_VOICE",
+          userId: notif.userId,
+          itemId: notif.copy.variantId,
+          traceId: crypto.randomUUID(),
+          runShadow: () =>
+            validateDomainCopy(bodyForShadow, { surface: "nudge" }),
+          getLegacyCategory: () => legacyVoice,
+          extractShadowCategory: (r) =>
+            r.valid
+              ? "clean"
+              : r.violations.map((v) => v.code).sort().join("|") || "invalid",
+        });
+      }
+      if (isDomainShadowEnabled("L5_GUARDRAILS")) {
+        const legacyDecision = legacySuppressedAtFinalGate ? "skip" : "send";
+        const nowUtc = new Date();
+        runDomainShadow({
+          surface: "smart-nudges:L5_GUARDRAILS",
+          userId: notif.userId,
+          itemId: notif.copy.variantId,
+          traceId: crypto.randomUUID(),
+          runShadow: () =>
+            evaluateDomainGuardrails(
+              {
+                id: notif.copy.variantId,
+                surface: "nudge",
+                kind: "push",
+                title: notif.copy.title,
+                body: notif.copy.body,
+              },
+              {
+                // Best-effort context: per-user pacing counters live outside
+                // this loop, so the shadow verdict is approximate by design.
+                nowUtc,
+                nowLocalHour: nowUtc.getUTCHours(),
+                nowLocalMinute: nowUtc.getUTCMinutes(),
+                countablePushesTodayCount: 0,
+              },
+            ),
+          getLegacyCategory: () => legacyDecision,
+          extractShadowCategory: (v) => v.verdict,
+        });
+      }
       if (
         finalViolation &&
         !(isLowContextStaticFallbackVariant(notif.copy.variantId) &&

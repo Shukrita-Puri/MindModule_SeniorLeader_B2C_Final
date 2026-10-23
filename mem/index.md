@@ -51,6 +51,7 @@
 - [LLM Resilience Strategy](mem://architecture/llm-provider-resilience-strategy) — Gemini Flash to Claude Sonnet fallback
 - [Daily Intelligence Snapshot](mem://architecture/daily-intelligence-snapshot-standard) — compute-daily-intelligence centralized analysis
 - [Unified Pattern Store](mem://architecture/unified-pattern-store) — causality_findings.signal_summary as canonical proactive-pattern store
+- [Shadow Domain Wiring](mem://architecture/shadow-domain-wiring) — Layer 0-5 engines run in shadow via domain-shadow.ts, per-flag env gates, parity-only logging
 - [Build Daily Context Orchestrator](mem://architecture/signal-engine/build-daily-context-orchestrator) — SSOT contract + null-safety rules for daily_context_snapshot
 - [Window Context Split](mem://architecture/signal-engine/window-context-split) — morning/afternoon/evening pure builders + behaviour-snapshot layer shared by Brief, Plan, Nudges
 - [Event Taxonomy Learning Loop](mem://architecture/event-taxonomy-learning-loop) — confirmed titles + nightly token promotion read by the single A–H resolver on every surface
