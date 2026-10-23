@@ -9522,6 +9522,31 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
               bodyText,
               opts,
             );
+
+            // ── L5_VOICE (shadow): domain copy validator vs legacy V6.1 ──
+            // The legacy accept/reject below is unchanged; the shadow run
+            // only logs whether the domain voice contract agrees.
+            if (isDomainShadowEnabled("L5_VOICE")) {
+              const legacyVoice = validation.valid
+                ? "clean"
+                : validation.reason;
+              const bodyForShadow = bodyText ?? "";
+              const voiceTraceId = crypto.randomUUID();
+              runDomainShadow({
+                surface: "compute-outer-readiness:L5_VOICE",
+                userId: typeof userId === "string" ? userId : "unknown",
+                itemId: `brief-llm:${voiceTraceId}`,
+                traceId: voiceTraceId,
+                runShadow: () =>
+                  validateDomainCopy(bodyForShadow, { surface: "brief_body" }),
+                getLegacyCategory: () => legacyVoice,
+                extractShadowCategory: (r) =>
+                  r.valid
+                    ? "clean"
+                    : r.violations.map((v) => v.code).sort().join("|") ||
+                      "invalid",
+              });
+            }
             if (!validation.valid) {
               return {
                 brief: null,
