@@ -629,6 +629,7 @@ export async function callLovableAIText(params: {
   temperature?: number;
   response_format?: { type: string };
   signal?: AbortSignal;
+  fetchImpl?: (input: string, init: RequestInit) => Promise<Response>;
 }): Promise<string> {
   const { text } = await callGatewayRaw(params);
   return text;
@@ -649,7 +650,7 @@ export async function callAIText(params: CallClaudeParams): Promise<string> {
     return await callClaudeText(params);
   } catch (err: any) {
     const status = err?.status ?? err?.statusCode;
-    const isKeyIssue = err?.message?.includes('ANTHROPIC_API_KEY') || 
+    const isKeyIssue = err?.message?.includes('ANTHROPIC_API_KEY') ||
                        err?.message?.includes('not configured');
     const rawBody = `${err?.body ?? ''} ${err?.message ?? ''}`.toLowerCase();
     // Anthropic returns HTTP 400 (not 402) when the account balance is empty.
@@ -657,10 +658,22 @@ export async function callAIText(params: CallClaudeParams): Promise<string> {
                            rawBody.includes('billing');
     const isCreditsIssue = status === 401 || status === 429 || status === 402 ||
                            (status === 400 && isBalanceError) || isBalanceError;
-    
-    if (isKeyIssue || isCreditsIssue) {
-      console.warn('[anthropic] ⚠️ Claude unavailable, falling back to Gemini:', 
-        isKeyIssue ? 'API key missing' : `HTTP ${status}`);
+    // Timeout / abort / network / 5xx: operational failures where a gateway
+    // fallback is strictly better than throwing — no customer request may die
+    // on an unhandled Anthropic exception while the account is degraded.
+    const errMsg = err instanceof Error ? err.message : String(err ?? '');
+    const isAbort = (err instanceof DOMException && err.name === 'AbortError') ||
+                    /aborted|timed? ?out/i.test(errMsg);
+    const isNetwork = err instanceof TypeError; // fetch connection failures
+    const isServerError = typeof status === 'number' && status >= 500 && status < 600;
+
+    if (isKeyIssue || isCreditsIssue || isAbort || isNetwork || isServerError) {
+      const why = isKeyIssue ? 'API key missing'
+        : isCreditsIssue ? `HTTP ${status} (credits/auth)`
+        : isAbort ? 'timeout/abort'
+        : isNetwork ? 'network error'
+        : `HTTP ${status} (server error)`;
+      console.warn('[anthropic] ⚠️ Claude unavailable, falling back to Gemini:', why);
       return await callLovableAIText({
         system: `${params.system ?? ''}${params.systemUncachedSuffix ?? ''}` || undefined,
         messages: params.messages.map(m => ({ role: m.role, content: m.content })),
@@ -668,6 +681,7 @@ export async function callAIText(params: CallClaudeParams): Promise<string> {
         temperature: params.temperature,
         response_format: params.response_format,
         signal: params.signal,
+        fetchImpl: params.fetchImpl,
       });
     }
     throw err;
