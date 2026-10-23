@@ -169,6 +169,14 @@ import {
   type DeterministicBriefResult,
 } from "../_shared/brief/deterministic-brief.ts";
 import { buildWindowContext } from "../_shared/signal-engine/window-context.ts";
+// Shadow domain wiring (Spine Stage 1-2): domain engines run beside the
+// legacy path via runInShadow — non-blocking, zero user-facing impact.
+import {
+  isDomainShadowEnabled,
+  runDomainShadow,
+} from "../_shared/shadow/domain-shadow.ts";
+import { assembleContext as assembleDomainContext } from "../_shared/domains/context/index.ts";
+import { validateCopy as validateDomainCopy } from "../_shared/domains/voice/index.ts";
 import {
   deriveDayShape,
   formatDayShapeBlock,
@@ -8827,6 +8835,49 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                 "[compute-outer-readiness] window-context skipped:",
                 we,
               );
+            }
+
+            // ── SPINE_READ + SPINE_DAY_PROFILE (shadow) ──
+            // The domain context assembler runs beside the legacy queries
+            // above; the Brief still ships from the legacy path. The parity
+            // log compares the legacy day-shape with the shadow DayProfile
+            // and confirms the bundle populates. The timeout guard is
+            // relaxed to 5s because the assembler does its own DB reads.
+            if (
+              (isDomainShadowEnabled("SPINE_READ") ||
+                isDomainShadowEnabled("SPINE_DAY_PROFILE")) && db && userId
+            ) {
+              const legacyDayType = briefDayShape ?? "unclassified";
+              const shadowLocalDate = promptLocalNow.toISOString().slice(0, 10);
+              const shadowWindow = ((briefWindowContext as any)?.window ??
+                "morning") as "morning" | "afternoon" | "evening";
+              runDomainShadow({
+                surface: "compute-outer-readiness:SPINE_READ",
+                userId,
+                itemId: `${shadowLocalDate}:${shadowWindow}`,
+                traceId: crypto.randomUUID(),
+                timeoutMs: 5000,
+                runShadow: async () => {
+                  const bundle = await assembleDomainContext(db, {
+                    userId,
+                    localDate: shadowLocalDate,
+                    windowName: shadowWindow,
+                  });
+                  return bundle;
+                },
+                getLegacyCategory: () => legacyDayType,
+                extractShadowCategory: (bundle) => {
+                  const populated = [
+                    bundle.dayProfile ? "dayProfile" : null,
+                    bundle.stateProfile ? "stateProfile" : null,
+                    bundle.windowProfile ? "windowProfile" : null,
+                    bundle.importance ? "importance" : null,
+                  ].filter(Boolean).join("+") || "empty";
+                  return `${
+                    bundle.dayProfile?.frame ?? "no-frame"
+                  }/${bundle.dayProfile?.character ?? "no-character"}[${populated}]`;
+                },
+              });
             }
 
             console.log("[compute-outer-readiness] shared-module snapshot", {
