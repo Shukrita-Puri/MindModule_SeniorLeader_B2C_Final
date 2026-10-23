@@ -98,7 +98,11 @@ function parseCsv(text: string): LabeledRow[] {
   return rows;
 }
 
-Deno.test("Events Domain: Evaluation across full Shukrita labeled dataset", async () => {
+const CSV_AVAILABLE = (() => {
+  try { Deno.statSync(CSV_PATH); return true; } catch { return false; }
+})();
+
+Deno.test({ name: "Events Domain: Evaluation across full Shukrita labeled dataset", ignore: !CSV_AVAILABLE }, async () => {
   const content = await Deno.readTextFile(CSV_PATH);
   const rows = parseCsv(content);
   assertNotEquals(rows.length, 0, "Labeled dataset must not be empty");
