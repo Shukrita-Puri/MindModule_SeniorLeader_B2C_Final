@@ -59,6 +59,8 @@ Deno.test("runDomainShadow: runs the shadow engine and resolves", async () => {
       userId: "user-1",
       itemId: "item-1",
       traceId: "trace-1",
+      // Short timeout so the runner's guard timer completes inside the test.
+      timeoutMs: 50,
       runShadow: () => {
         ran = true;
         return "shadow-result";
@@ -67,6 +69,6 @@ Deno.test("runDomainShadow: runs the shadow engine and resolves", async () => {
       extractShadowCategory: (r) => r,
     });
   });
-  await new Promise((r) => setTimeout(r, 10));
+  await new Promise((r) => setTimeout(r, 120));
   assert(ran, "shadow engine should have run");
 });
