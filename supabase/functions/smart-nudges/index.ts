@@ -3324,6 +3324,9 @@ ${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at
     }
     if (ctx.briefBehaviour?.promptBlockBrief) {
       behaviourPromptBlock += ctx.briefBehaviour.promptBlockBrief;
+      legacyBehaviourSignalIds = (ctx.briefBehaviour?.flagsBrief ?? [])
+        .map((f) => f.rule)
+        .filter(Boolean);
       console.log(
         `[smart-nudges] applied brief snapshot sig=${ctx.briefBehaviour.signatureHash}`,
       );
