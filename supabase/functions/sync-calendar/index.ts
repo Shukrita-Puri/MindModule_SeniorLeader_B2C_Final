@@ -674,7 +674,11 @@ serve(async (req) => {
         userId,
         itemId: `${provider}-sync:${legacyCount}`,
         traceId: crypto.randomUUID(),
-        runShadow: () => mergeCalendarEvents(events, "web"),
+        runShadow: () =>
+          mergeCalendarEvents(
+            events as unknown as Parameters<typeof mergeCalendarEvents>[0],
+            "web",
+          ),
         getLegacyCategory: () => `events:${legacyCount}`,
         extractShadowCategory: (merged) => `events:${merged.length}`,
         timeoutMs: 1500,
