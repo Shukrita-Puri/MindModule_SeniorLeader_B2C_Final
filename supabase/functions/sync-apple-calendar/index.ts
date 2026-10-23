@@ -184,7 +184,11 @@ serve(async (req) => {
         userId,
         itemId: `apple-sync:${legacyCount}`,
         traceId: crypto.randomUUID(),
-        runShadow: () => mergeCalendarEvents(collapsed, "ios"),
+        runShadow: () =>
+          mergeCalendarEvents(
+            collapsed as unknown as Parameters<typeof mergeCalendarEvents>[0],
+            "ios",
+          ),
         getLegacyCategory: () => `events:${legacyCount}`,
         extractShadowCategory: (merged) => `events:${merged.length}`,
         timeoutMs: 1500,
