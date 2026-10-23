@@ -108,6 +108,7 @@ import {
 import {
   allocatePlanSlots,
   type DayShape,
+  type SlotAllocation,
   type SlotRole,
 } from "../_shared/jit/slot-allocator.ts";
 import {
@@ -116,6 +117,16 @@ import {
   type SelectionSlotContract,
   selectPracticeForSlot,
 } from "../_shared/plan/practice-selector.ts";
+import {
+  isDomainShadowEnabled,
+  runDomainShadow,
+} from "../_shared/shadow/domain-shadow.ts";
+import {
+  type DayInterventionsPlan,
+  type PlanSlotMomentInput,
+  PracticeAdapter,
+  recommendInterventions,
+} from "../_shared/domains/interventions/index.ts";
 import {
   applyEventPriorityMemory,
   getSubcategoryForEvent,
