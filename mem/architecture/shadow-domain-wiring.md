@@ -19,11 +19,16 @@ type: architecture
     5s because `assembleContext` does its own DB reads), `L5_VOICE` (after
     `validateV61Output` on the LLM path and after `validateBrief` on the
     deterministic path).
+  - `generate-mastery-plan`: `L3_SELECTOR` (after the legacy slot loop,
+    only when slots exist; runs `recommendInterventions` from
+    `domains/interventions` with the same enriched catalogue via
+    `PracticeAdapter.adapt`, comparing per-slot legacy practice IDs vs
+    shadow chosen IDs as `slotIndex:id` joined strings).
 - Env flags set to `shadow` in the backend: AH_ENGINE_MODE,
   L0_PARSERS_DOMAIN, SPINE_DAY_PROFILE, SPINE_READ, L5_SIGNALS,
-  L5_GUARDRAILS, L5_VOICE, L3_SELECTOR. Only AH_ENGINE_MODE and the five
-  wired flags above are read by code today; L0_PARSERS_DOMAIN and
-  L3_SELECTOR are inert until wired.
+  L5_GUARDRAILS, L5_VOICE, L3_SELECTOR. All except L0_PARSERS_DOMAIN are
+  read by code today; L0_PARSERS_DOMAIN is inert until wired into the
+  calendar/wearable sync functions.
 - Invariants: legacy output is always returned to the client; shadow runs
   are non-blocking; parity logs carry hashed IDs and reason codes only —
   never titles, names, or personal content.
