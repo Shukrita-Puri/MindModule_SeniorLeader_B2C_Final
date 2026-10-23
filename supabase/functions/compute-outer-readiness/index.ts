@@ -10330,6 +10330,34 @@ Output ONLY valid JSON: {"phrase":"...","body":"...","leanOn":[{"signal":"...","
                       : null,
                   },
                 );
+
+                // ── L5_VOICE (shadow): domain copy validator vs legacy
+                // deterministic gate. The accept/floor/reject outcome below
+                // is unchanged; the shadow run only logs agreement.
+                if (isDomainShadowEnabled("L5_VOICE")) {
+                  const legacyVoice = specValidation.ok
+                    ? "clean"
+                    : specValidation.reason ?? "invalid";
+                  const bodyForShadow = specBuilt.body;
+                  const voiceTraceId = crypto.randomUUID();
+                  runDomainShadow({
+                    surface: "compute-outer-readiness:L5_VOICE",
+                    userId: typeof userId === "string" ? userId : "unknown",
+                    itemId: `brief-det:${voiceTraceId}`,
+                    traceId: voiceTraceId,
+                    runShadow: () =>
+                      validateDomainCopy(bodyForShadow, {
+                        surface: "brief_body",
+                      }),
+                    getLegacyCategory: () => legacyVoice,
+                    extractShadowCategory: (r) =>
+                      r.valid
+                        ? "clean"
+                        : r.violations.map((v) => v.code).sort().join("|") ||
+                          "invalid",
+                  });
+                }
+
                 if (specValidation.ok) {
                   deterministicBrief = specBuilt;
                   console.log(
