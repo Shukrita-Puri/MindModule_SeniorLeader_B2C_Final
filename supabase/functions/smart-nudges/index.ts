@@ -3413,11 +3413,16 @@ ${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at
       itemId: `${ctx.todayStr}:${ctx.briefWindow}`,
       traceId: crypto.randomUUID(),
       runShadow: async () => {
-        const bundle = await assembleDomainContext(supabase, {
-          userId: ctx.userId,
-          localDate: ctx.todayStr,
-          windowName: ctx.briefWindow as "morning" | "afternoon" | "evening",
-        });
+        const bundle = await assembleDomainContext(
+          // The assembler only needs a minimal query surface; the full
+          // supabase-js client type is too deep for the checker here.
+          supabase as unknown as Parameters<typeof assembleDomainContext>[0],
+          {
+            userId: ctx.userId,
+            localDate: ctx.todayStr,
+            windowName: ctx.briefWindow as "morning" | "afternoon" | "evening",
+          },
+        );
         return evaluateDomainBehaviourSignals(bundle);
       },
       getLegacyCategory: () => legacyIds,
