@@ -7052,6 +7052,60 @@ serve(async (req) => {
         notif.copy.body,
         notif.v8Ctx,
       );
+
+      // ── L5_VOICE + L5_GUARDRAILS (shadow) ──
+      // Domain engines run beside the legacy V8/truth gates; the send/skip
+      // outcome below is unchanged. The parity log records verdicts only.
+      const legacySuppressedAtFinalGate = !!finalViolation &&
+        !(isLowContextStaticFallbackVariant(notif.copy.variantId) &&
+          isNamedContextViolation(finalViolation));
+      if (isDomainShadowEnabled("L5_VOICE")) {
+        const legacyVoice = finalViolation ?? "clean";
+        const bodyForShadow = notif.copy.body;
+        runDomainShadow({
+          surface: "smart-nudges:L5_VOICE",
+          userId: notif.userId,
+          itemId: notif.copy.variantId,
+          traceId: crypto.randomUUID(),
+          runShadow: () =>
+            validateDomainCopy(bodyForShadow, { surface: "nudge" }),
+          getLegacyCategory: () => legacyVoice,
+          extractShadowCategory: (r) =>
+            r.valid
+              ? "clean"
+              : r.violations.map((v) => v.code).sort().join("|") || "invalid",
+        });
+      }
+      if (isDomainShadowEnabled("L5_GUARDRAILS")) {
+        const legacyDecision = legacySuppressedAtFinalGate ? "skip" : "send";
+        const nowUtc = new Date();
+        runDomainShadow({
+          surface: "smart-nudges:L5_GUARDRAILS",
+          userId: notif.userId,
+          itemId: notif.copy.variantId,
+          traceId: crypto.randomUUID(),
+          runShadow: () =>
+            evaluateDomainGuardrails(
+              {
+                id: notif.copy.variantId,
+                surface: "nudge",
+                kind: "push",
+                title: notif.copy.title,
+                body: notif.copy.body,
+              },
+              {
+                // Best-effort context: per-user pacing counters live outside
+                // this loop, so the shadow verdict is approximate by design.
+                nowUtc,
+                nowLocalHour: nowUtc.getUTCHours(),
+                nowLocalMinute: nowUtc.getUTCMinutes(),
+                countablePushesTodayCount: 0,
+              },
+            ),
+          getLegacyCategory: () => legacyDecision,
+          extractShadowCategory: (v) => v.verdict,
+        });
+      }
       if (
         finalViolation &&
         !(isLowContextStaticFallbackVariant(notif.copy.variantId) &&
