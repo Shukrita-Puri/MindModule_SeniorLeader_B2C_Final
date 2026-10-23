@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared/attendeeResolverQueue.ts";
-import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
+import { computeIdentityKey, mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
+import { isDomainShadowEnabled, runDomainShadow } from "../_shared/shadow/domain-shadow.ts";
 import { classifyGoogleCalendarError } from "../_shared/rules/google-calendar-errors.ts";
 import { classifyMicrosoftCalendarError } from "../_shared/rules/microsoft-calendar-errors.ts";
 import {
@@ -663,6 +664,22 @@ serve(async (req) => {
     });
 
     console.log('[sync-calendar] Processed', classifiedEvents.length, 'events');
+
+    // L0 shadow: canonical domains/calendar merge vs the legacy pass-through
+    // above. Legacy rows still persist.
+    if (isDomainShadowEnabled("L0_PARSERS_DOMAIN") && classifiedEvents.length > 0) {
+      const legacyCount = classifiedEvents.length;
+      runDomainShadow({
+        surface: `l0_calendar_merge_${provider}`,
+        userId,
+        itemId: `${provider}-sync:${legacyCount}`,
+        traceId: crypto.randomUUID(),
+        runShadow: () => mergeCalendarEvents(events, "web"),
+        getLegacyCategory: () => `events:${legacyCount}`,
+        extractShadowCategory: (merged) => `events:${merged.length}`,
+        timeoutMs: 1500,
+      });
+    }
 
     // Layer 1: Upsert events (preserve history) instead of DELETE → INSERT.
     // Only future-dated events that disappeared from the upstream API get deleted.

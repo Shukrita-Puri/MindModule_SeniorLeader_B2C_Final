@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { collectUnresolvedAttendeeEmails, detachResolverBatch } from "../_shared/attendeeResolverQueue.ts";
-import { computeIdentityKey } from "../_shared/rules/calendar-merge.ts";
+import { computeIdentityKey, mergeCalendarEvents } from "../_shared/rules/calendar-merge.ts";
+import { isDomainShadowEnabled, runDomainShadow } from "../_shared/shadow/domain-shadow.ts";
 import { collapseAppleMultiSource } from "../_shared/rules/apple-source-collapse.ts";
 import { redactUserId } from "../_shared/identity/redact-user-id.ts";
 
@@ -173,6 +174,22 @@ serve(async (req) => {
     const byKey = new Map<string, typeof collapsed[number]>();
     for (const row of collapsed) byKey.set(row.external_id, row);
     const classified = Array.from(byKey.values());
+
+    // L0 shadow: canonical domains/calendar merge vs the legacy
+    // collapse + external_id dedupe above. Legacy rows still persist.
+    if (isDomainShadowEnabled("L0_PARSERS_DOMAIN") && classified.length > 0) {
+      const legacyCount = classified.length;
+      runDomainShadow({
+        surface: "l0_calendar_merge_apple",
+        userId,
+        itemId: `apple-sync:${legacyCount}`,
+        traceId: crypto.randomUUID(),
+        runShadow: () => mergeCalendarEvents(collapsed, "ios"),
+        getLegacyCategory: () => `events:${legacyCount}`,
+        extractShadowCategory: (merged) => `events:${merged.length}`,
+        timeoutMs: 1500,
+      });
+    }
 
     if (classified.length > 0) {
       const { error: upsertError } = await serviceClient
