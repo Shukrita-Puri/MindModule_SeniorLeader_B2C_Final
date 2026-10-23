@@ -3316,6 +3316,8 @@ ${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at
   // this window, AND we still need `notificationIsProduct` (the nudge-only
   // rule) which the Brief's snapshot does not carry.
   let behaviourPromptBlock = '';
+  // Legacy active signal IDs, captured for the L5_SIGNALS shadow comparison.
+  let legacyBehaviourSignalIds: string[] = [];
   try {
     if (ctx.briefBehaviour?.taxonomyBlock) {
       behaviourPromptBlock += ctx.briefBehaviour.taxonomyBlock;
