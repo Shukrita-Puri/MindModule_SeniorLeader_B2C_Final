@@ -1,3 +1,6 @@
+// Re-export Layer 2 Availability Domain
+export * from "../domains/availability/index.ts";
+
 /**
  * Canonical Availability Classifier (SSOT).
  *

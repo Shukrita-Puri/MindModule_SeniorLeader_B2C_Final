@@ -9,6 +9,8 @@ import {
 import { isEngineModeV3, isEngineModeCanary, isEngineModeShadow } from "./engine-mode.ts";
 import { classifyEventV3 } from "./event-classifier-v3.ts";
 import { logShadowParity } from "./shadow-parity-logger.ts";
+import { domainEventClassifier } from "../domains/events/classifier.ts";
+import { runInShadow } from "../shadow/runner.ts";
 
 export interface ResolveEventResult {
   categoryId: EventCategoryId | null;
@@ -149,7 +151,7 @@ export function resolveEventCategory(
         source: v2Result.resolvedBy
       };
 
-  // Shadow Mode: run v3 in shadow, record parity comparison, return legacy result
+  // Shadow Mode: run v3 and Layer 1 events domain in shadow, record parity comparison, return legacy result
   if (isShadowActive) {
     try {
       const v3Stamp = classifyEventV3(raw ?? { title });
@@ -161,6 +163,18 @@ export function resolveEventCategory(
         legacySubtype: legacyResult.subtypeId,
         v3Stamp,
         mode: "shadow",
+      }).catch(() => {});
+
+      // Layer 1 Events Domain shadow run (Spine §12, Decision 27)
+      const eventId = String(raw?.id ?? raw?.event?.id ?? "unknown_event");
+      void runInShadow({
+        surface: "resolveEventCategory",
+        userId: userId ?? "anonymous_user",
+        itemId: eventId,
+        traceId: `trace_${Date.now()}`,
+        runShadow: () => domainEventClassifier.classify(raw ?? { title }),
+        getLegacyCategory: () => legacyResult.categoryId,
+        extractShadowCategory: (res) => res.category ?? "unresolved",
       }).catch(() => {});
     } catch (_err) {
       // Swallowed: shadow observation must never alter primary flow

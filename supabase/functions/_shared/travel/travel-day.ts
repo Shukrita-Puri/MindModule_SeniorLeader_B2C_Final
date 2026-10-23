@@ -1,3 +1,6 @@
+// Re-export Layer 2 Travel Domain
+export * from "../domains/travel/index.ts";
+
 /**
  * travel-day.ts — SSOT for "is today a travel day?".
  *

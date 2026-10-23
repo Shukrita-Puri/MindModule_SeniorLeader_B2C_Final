@@ -1,3 +1,6 @@
+// Re-export Layer 2 Week-Ahead Domain
+export * from "../domains/week-ahead/index.ts";
+
 /**
  * week-ahead-mode.ts — single predicate shared by Brief, Plan, and Nudges to
  * decide when the user should land in the Week-Ahead Planning surface instead

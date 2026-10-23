@@ -1,18 +1,24 @@
-import { dayOfWeekFromIsoDate } from "../signal-engine/day-kind-detector.ts";
+// Re-export Layer 2 Time domain and maintain backward compatibility.
+// Source: Part 2 Layer 2 (Section 4.1), Final Tree Plan.
 
-export const SATURDAY_WEEKLY_COUNTRIES = new Set([
-  "SA", "KW", "QA", "BH", "OM", "IL",
-]);
+export * from "../domains/time/index.ts";
+
+import {
+  SATURDAY_WEEKEND_COUNTRIES,
+} from "../domains/time/constants.ts";
+import { timeEngine } from "../domains/time/engine.ts";
+
+export const SATURDAY_WEEKLY_COUNTRIES = SATURDAY_WEEKEND_COUNTRIES;
 
 export interface UserLocaleContext {
-  homeCountry: string;          // ISO-3166 alpha-2
+  homeCountry: string;
   currentCountry: string | null;
-  timezone: string;             // IANA tz
-  localDate: string;            // YYYY-MM-DD in USER's tz — not server UTC
-  dayOfWeek: number;            // from localDate in user's tz — THE ONLY dayOfWeek used downstream
-  weekendDays: number[];        // derived from homeCountry via planningDayOfWeek()
-  planningDayOfWeek: number;    // reused from week-ahead-mode.ts
-  isWeekendRestDay: boolean;    // weekendDays.includes(dayOfWeek)
+  timezone: string;
+  localDate: string;
+  dayOfWeek: number;
+  weekendDays: number[];
+  planningDayOfWeek: number;
+  isWeekendRestDay: boolean;
 }
 
 export function planningDayOfWeek(homeCountry?: string | null): 0 | 6 {
@@ -28,40 +34,23 @@ export function resolveUserLocaleContext(opts: {
   timezoneOffsetMinutes: number;
   currentCountry?: string | null;
 }): UserLocaleContext {
-  const homeCountry = (opts.homeCountry || "US").toUpperCase();
-  const currentCountry = opts.currentCountry || null;
-  const timezone = opts.timezone || "UTC";
-
-  // Calculate local date and day of week in user's timezone
   const now = new Date(opts.utcNowMs);
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  
-  const parts = formatter.formatToParts(now);
-  const year = parts.find((p) => p.type === "year")?.value || "";
-  const month = parts.find((p) => p.type === "month")?.value || "";
-  const day = parts.find((p) => p.type === "day")?.value || "";
-  const localDate = opts.localDate || `${year}-${month}-${day}`;
-  const dayOfWeek = dayOfWeekFromIsoDate(localDate);
-
-  const planDay = planningDayOfWeek(homeCountry);
-  // If planning day is Saturday (6), weekend is Friday (5) and Saturday (6)
-  // If planning day is Sunday (0), weekend is Saturday (6) and Sunday (0)
-  const weekendDays = planDay === 6 ? [5, 6] : [0, 6];
-  const isWeekendRestDay = weekendDays.includes(dayOfWeek);
+  const facts = timeEngine.evaluate(
+    {
+      homeCountry: opts.homeCountry,
+      deviceTimezone: opts.timezone,
+    },
+    now,
+  );
 
   return {
-    homeCountry,
-    currentCountry,
-    timezone,
-    localDate,
-    dayOfWeek,
-    weekendDays,
-    planningDayOfWeek: planDay,
-    isWeekendRestDay,
+    homeCountry: facts.homeCountry || "US",
+    currentCountry: opts.currentCountry || null,
+    timezone: facts.effectiveTimezone,
+    localDate: opts.localDate || facts.localDate,
+    dayOfWeek: facts.weekday,
+    weekendDays: facts.weekendDays,
+    planningDayOfWeek: facts.planningDay as 0 | 6,
+    isWeekendRestDay: facts.isWeekendDay,
   };
 }
