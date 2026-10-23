@@ -3395,9 +3395,36 @@ ${isFirstWeekendEvening ? `WEEKEND framing: recovery-first. Required CTA verb at
         behaviourPromptBlock += wiring.promptBlock;
         console.log("[smart-nudges] applied evaluateForScope fallback (no brief snapshot)");
       }
+      legacyBehaviourSignalIds = (wiring?.flags ?? []).map((f) => f.rule);
     }
   } catch (e) {
     console.warn("[smart-nudges] behaviour wiring skipped:", e);
+  }
+
+  // ── L5_SIGNALS (shadow): domain behaviour signals vs legacy flags ──
+  // Zero user-facing impact: the legacy prompt block above is unchanged.
+  // The parity log compares active signal IDs only — no titles or PII.
+  if (isDomainShadowEnabled("L5_SIGNALS") && supabase) {
+    const legacyIds = [...legacyBehaviourSignalIds].sort().join("|") ||
+      "none";
+    runDomainShadow({
+      surface: "smart-nudges:L5_SIGNALS",
+      userId: ctx.userId,
+      itemId: `${ctx.todayStr}:${ctx.briefWindow}`,
+      traceId: crypto.randomUUID(),
+      runShadow: async () => {
+        const bundle = await assembleDomainContext(supabase, {
+          userId: ctx.userId,
+          localDate: ctx.todayStr,
+          windowName: ctx.briefWindow as "morning" | "afternoon" | "evening",
+        });
+        return evaluateDomainBehaviourSignals(bundle);
+      },
+      getLegacyCategory: () => legacyIds,
+      extractShadowCategory: (signals) =>
+        signals.filter((s) => s.fired).map((s) => s.name).sort().join("|") ||
+        "none",
+    });
   }
 
   // Load shape (read-only, render-gated). Silent on any failure or when no
