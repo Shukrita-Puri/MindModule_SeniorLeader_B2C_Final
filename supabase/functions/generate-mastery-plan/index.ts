@@ -108,6 +108,7 @@ import {
 import {
   allocatePlanSlots,
   type DayShape,
+  type SlotAllocation,
   type SlotRole,
 } from "../_shared/jit/slot-allocator.ts";
 import {
@@ -116,6 +117,16 @@ import {
   type SelectionSlotContract,
   selectPracticeForSlot,
 } from "../_shared/plan/practice-selector.ts";
+import {
+  isDomainShadowEnabled,
+  runDomainShadow,
+} from "../_shared/shadow/domain-shadow.ts";
+import {
+  type DayInterventionsPlan,
+  type PlanSlotMomentInput,
+  PracticeAdapter,
+  recommendInterventions,
+} from "../_shared/domains/interventions/index.ts";
 import {
   applyEventPriorityMemory,
   getSubcategoryForEvent,
@@ -6888,6 +6899,69 @@ async function generateMasteryPlan(
 
       horizonModules.push(hm);
     }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────
+  // L3_SELECTOR shadow (Spine Stage 1-2): run the Layer-3 interventions
+  // 5-stage selector beside the legacy practice selector. Never changes
+  // the plan returned to the client; parity is logged with hashed IDs and
+  // reason codes only.
+  if (isDomainShadowEnabled("L3_SELECTOR") && horizonModules.length > 0) {
+    const legacySlotPracticeIds = horizonModules
+      .map((m: any, i: number) => `${i}:${m.practice?.contentId ?? "none"}`)
+      .join("|");
+    runDomainShadow({
+      surface: "plan-l3-selector",
+      userId: req.userId,
+      itemId: `plan-${today}`,
+      traceId: `l3-${today}`,
+      runShadow: () => {
+        const roleForSlot = (
+          slot: SlotAllocation["slots"][number],
+        ): PlanSlotMomentInput["role"] => {
+          if (slot.arcLabel === "Prepare") return "prepare";
+          if (slot.arcLabel === "Recover") return "recover";
+          if (slot.index === 2) return "wrap";
+          return "sustain";
+        };
+        const phaseForSlot = (
+          slot: SlotAllocation["slots"][number],
+        ): PlanSlotMomentInput["phase"] => {
+          if (slot.jitPhase) return slot.jitPhase;
+          if (
+            slot.slotRole === "close_of_day" ||
+            slot.slotRole === "protect_tonight"
+          ) return "evening";
+          return slot.index === 0 ? "pre" : slot.index === 1 ? "during" : "post";
+        };
+        const moments: PlanSlotMomentInput[] = allocation.slots.map((slot) => ({
+          slotIndex: slot.index,
+          role: roleForSlot(slot),
+          anchorId: slot.jitEventId,
+          anchorCategory: slot.jitCategoryId,
+          phase: phaseForSlot(slot),
+          availableGapMinutes: 15,
+        }));
+        return recommendInterventions({
+          moments,
+          catalogue: PracticeAdapter.adapt(
+            enrichedContent.map((c: any) => ({
+              ...c,
+              minutes: c.duration ?? c.minutes,
+              duration_band: c.durationBand ?? c.duration_band,
+              visible: true,
+            })),
+          ),
+          userGoals: (req as any).leaderProfile?.goals?.declared ?? [],
+          userFavourites: req.favorites ?? [],
+        });
+      },
+      getLegacyCategory: () => legacySlotPracticeIds,
+      extractShadowCategory: (plan: DayInterventionsPlan) =>
+        plan.slots
+          .map((s) => `${s.slotIndex}:${s.decision.chosen.id}`)
+          .join("|"),
+    });
   }
 
   let finalHorizonModules = horizonModules;
