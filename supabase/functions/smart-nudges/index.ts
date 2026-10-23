@@ -89,6 +89,16 @@ import {
   violatesCopyContractV8,
   violatesTruthContract,
 } from "./copy-contract.ts";
+// Shadow domain wiring (Spine Stage 1-2): domain engines run beside the
+// legacy path via runInShadow — non-blocking, zero user-facing impact.
+import {
+  isDomainShadowEnabled,
+  runDomainShadow,
+} from "../_shared/shadow/domain-shadow.ts";
+import { evaluateGuardrails as evaluateDomainGuardrails } from "../_shared/domains/guardrails/index.ts";
+import { evaluateBehaviourSignals as evaluateDomainBehaviourSignals } from "../_shared/domains/behaviours/index.ts";
+import { validateCopy as validateDomainCopy } from "../_shared/domains/voice/index.ts";
+import { assembleContext as assembleDomainContext } from "../_shared/domains/context/index.ts";
 import {
   firstWeekendDayForHomeCountry,
   getFallbackNudgeOneJitCopy,
