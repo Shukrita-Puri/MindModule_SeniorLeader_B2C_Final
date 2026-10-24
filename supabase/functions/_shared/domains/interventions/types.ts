@@ -31,21 +31,9 @@ export type InterventionNeed =
   | "keep_the_ritual_off_days"
   | "prepare_the_week";
 
-export type InterventionCapability =
-  | "reduce_arousal"
-  | "steady_composure"
-  | "raise_energy"
-  | "recover_energy"
-  | "sharpen_focus"
-  | "prime_presence"
-  | "decision_clarity"
-  | "start_action"
-  | "detach_and_offload"
-  | "process_setback"
-  | "reframe_story"
-  | "reflect_and_learn"
-  | "reconnect_purpose"
-  | "sleep_preparation";
+import type { CanonicalCapability } from "../../spine/capabilities.ts";
+
+export type InterventionCapability = CanonicalCapability;
 
 export interface PracticeDefinition {
   id: string;
@@ -81,7 +69,12 @@ export type SituationGroup =
   | "recovery"
   | "focus"
   | "travel"
-  | "crisis";
+  | "crisis"
+  | "recovery_sustainable"
+  | "working_day"
+  | "conference"
+  | "days_off"
+  | string;
 
 export type OwnActionPrinciple =
   | "protect_capacity"
@@ -175,7 +168,9 @@ export interface SelectionResult {
   outcome: "match" | "default_set" | "static_route";
   score: number;
   reasons: string[];
+  eligibleCandidates?: Array<{ id: string; score: number; relevance: number }>;
   rejected: Array<{ interventionId: string; reason: string }>;
+  versions?: Record<string, string>;
 }
 
 export interface PlanSlotRecommendation {

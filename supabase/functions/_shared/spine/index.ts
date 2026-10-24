@@ -7,4 +7,6 @@ export * from "./categories.ts";
 export * from "./subtypes.ts";
 export * from "./dimensions.ts";
 export * from "./vocabularies.ts";
+export * from "./relationships.ts";
+export * from "./capabilities.ts";
 export * from "./types.ts";

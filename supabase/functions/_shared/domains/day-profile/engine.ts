@@ -66,6 +66,39 @@ export class DayProfileComposer {
 
     const anchorItem = input.importance.topItemAnchor;
 
+    const demandTotals = {
+      cognitive: 0,
+      emotional: 0,
+      visibility: 0,
+      political: 0,
+      relational: 0,
+      energy: 0,
+      circadian: 0,
+      identity: 0,
+      arousal: 0,
+      switchCost: 0,
+      recoveryMinutes: 0,
+      spineVersion: "spine.v2.20261023",
+    };
+
+    for (const stamp of input.stamps) {
+      if (!stamp || stamp.dimensions?.workContext === "personal") continue;
+      if (stamp.itemDemand?.demandProfile) {
+        const p = stamp.itemDemand.demandProfile;
+        demandTotals.cognitive += p.cognitive ?? 0;
+        demandTotals.emotional += p.emotional ?? 0;
+        demandTotals.visibility += p.visibility ?? 0;
+        demandTotals.political += p.political ?? 0;
+        demandTotals.relational += p.relational ?? 0;
+        demandTotals.energy += p.energy ?? 0;
+        demandTotals.circadian += p.circadian ?? 0;
+        demandTotals.identity += p.identity ?? 0;
+        demandTotals.arousal += stamp.itemDemand.arousal ?? 0;
+        demandTotals.switchCost += stamp.itemDemand.switchCost ?? 0;
+        demandTotals.recoveryMinutes += stamp.itemDemand.recoveryMinutes ?? 0;
+      }
+    }
+
     return {
       localDate: input.timeLocale.localDate,
       frame: input.availability.frame,
@@ -81,6 +114,7 @@ export class DayProfileComposer {
       crisis: input.crisis,
       weekAhead: input.weekAhead,
       contextualFacts,
+      demandTotals,
       toCanonicalDayContext() {
         return {
           localDate: input.timeLocale.localDate,

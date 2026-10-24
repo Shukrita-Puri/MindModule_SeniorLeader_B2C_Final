@@ -159,6 +159,31 @@ Deno.test("Interventions - E3 Route: Own action slot already allocated routes to
   assertEquals(decision.rule, "RT6_app_first");
 });
 
+Deno.test("Interventions - E3 Route: Cross-Layer Addition - Reliably skipped situation routes to own_action with behaviour_pattern reason", () => {
+  // Normally 25m free in pre phase routes to app_tool (RT6)
+  const defaultDecision = routeNeed({
+    need: "settle_before",
+    availableGapMinutes: 25,
+    phase: "evening",
+    situation: "travel",
+  });
+  assertEquals(defaultDecision.route, "app_tool");
+
+  // With behaviour_patterns indicating evening/travel practice is reliably skipped:
+  const patternDecision = routeNeed({
+    need: "settle_before",
+    availableGapMinutes: 25,
+    phase: "evening",
+    situation: "travel",
+    behaviourPatterns: [
+      { situation: "travel", isReliablySkipped: true },
+    ],
+  });
+  assertEquals(patternDecision.route, "own_action");
+  assertEquals(patternDecision.rule, "RT5_proven_efficacy");
+  assertEquals(patternDecision.reason.includes("behaviour_pattern"), true);
+});
+
 Deno.test("Interventions - Selector: Mindset practice rejected when available gap is under 30m", () => {
   const result = selectIntervention({
     request: {
@@ -272,8 +297,8 @@ Deno.test("Interventions - Contract test: Full 70-practice catalogue adapts corr
   }
 });
 
-Deno.test("Interventions - Own Action Catalogue: All 35 actions have valid structure & pass charter", () => {
-  assertEquals(OWN_ACTIONS_CATALOGUE.length, 31);
+Deno.test("Interventions - Own Action Catalogue: All 56 actions have valid structure & pass charter", () => {
+  assertEquals(OWN_ACTIONS_CATALOGUE.length, 56);
   for (const action of OWN_ACTIONS_CATALOGUE) {
     assertEquals(action.kind, "own_action");
     assertEquals(action.needs.length > 0, true);

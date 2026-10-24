@@ -26,6 +26,21 @@ export interface DayProfileContextualFacts {
   firstDayBack: boolean;
 }
 
+export interface DayProfileDemandTotals {
+  cognitive: number;
+  emotional: number;
+  visibility: number;
+  political: number;
+  relational: number;
+  energy: number;
+  circadian: number;
+  identity: number;
+  arousal: number;
+  switchCost: number;
+  recoveryMinutes: number;
+  spineVersion: string;
+}
+
 export interface DayProfile {
   localDate: string;
   frame: AvailabilityFrame;
@@ -41,6 +56,7 @@ export interface DayProfile {
   crisis: CrisisFacts;
   weekAhead: WeekAheadFacts;
   contextualFacts: DayProfileContextualFacts;
+  demandTotals: DayProfileDemandTotals;
   toCanonicalDayContext(): Record<string, unknown>;
 }
 

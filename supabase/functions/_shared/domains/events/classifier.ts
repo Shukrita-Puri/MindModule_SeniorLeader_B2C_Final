@@ -203,6 +203,7 @@ export class DomainEventClassifier {
       findings,
       dimensions: pic.dimensions,
       itemDemand: computeDemand(pic.category, pic.subtype, pic.dimensions.durationMinutes),
+      relationshipRole: findings.find((f) => f.type === "relationship")?.value ?? null,
       taxonomyVersion: TAXONOMY_VERSION,
       classifierVersion: CLASSIFIER_VERSION,
       classifiedAt: nowIso,

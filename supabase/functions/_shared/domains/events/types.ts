@@ -91,6 +91,7 @@ export interface ClassificationStamp {
   findings: Finding[];
   dimensions: ItemDimensions;
   itemDemand: ItemDemandComputed | null;
+  relationshipRole?: string | null;
   taxonomyVersion: string;
   classifierVersion: string;
   classifiedAt: string;

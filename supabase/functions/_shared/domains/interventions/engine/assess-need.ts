@@ -21,7 +21,7 @@ export function assessNeed(input: AssessNeedInput): {
   reason: string;
 } {
   // 1. Crisis takes precedence
-  if (input.isCrisis || input.dayProfile?.crisis.isCrisisDay) {
+  if (input.isCrisis || input.dayProfile?.crisis?.isCrisisDay) {
     return {
       need: "steady_in_crisis",
       reason: "Active crisis episode requires steadying and composure protection",
@@ -29,8 +29,8 @@ export function assessNeed(input: AssessNeedInput): {
   }
 
   // 2. Day off / leave
-  if (input.dayProfile && !input.dayProfile.availability.isWorkingDay) {
-    if (input.dayProfile.weekAhead.isActive) {
+  if (input.dayProfile && input.dayProfile.availability && !input.dayProfile.availability.isWorkingDay) {
+    if (input.dayProfile.weekAhead?.isActive) {
       return {
         need: "prepare_the_week",
         reason: "Last day off before returning to work; week ahead planning mode",

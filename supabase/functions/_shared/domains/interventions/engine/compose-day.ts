@@ -5,7 +5,7 @@
 // Source: Part 2 Layer 3 (Section 15.5, CP1–CP6).
 
 import { assessNeed } from "./assess-need.ts";
-import { routeNeed } from "./route-need.ts";
+import { routeNeed, type BehaviourPatternInput } from "./route-need.ts";
 import { selectIntervention } from "../selector/index.ts";
 import { stepCheckCharter } from "./charter-check.ts";
 import type {
@@ -33,6 +33,7 @@ export interface ComposeDayInput {
   catalogue?: PracticeDefinition[];
   userGoals?: string[];
   userFavourites?: string[];
+  behaviourPatterns?: BehaviourPatternInput[];
   nowUtc?: Date;
 }
 
@@ -56,7 +57,9 @@ export function composeDayInterventions(input: ComposeDayInput): DayIntervention
       need,
       availableGapMinutes: moment.availableGapMinutes,
       phase: moment.phase,
+      situation: moment.anchorCategory || input.dayProfile?.frame || moment.phase,
       isOwnActionSlotAllocated: ownActionAllocatedCount >= 1,
+      behaviourPatterns: input.behaviourPatterns,
     });
 
     const allowOwnActions = routing.route === "own_action";

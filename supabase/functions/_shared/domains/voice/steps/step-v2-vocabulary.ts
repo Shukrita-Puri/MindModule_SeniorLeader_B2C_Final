@@ -133,5 +133,47 @@ export function checkVocabulary(
     }
   }
 
+  // 9. Judgmental Behaviour Wording (Layer 4 cross-layer addition)
+  const BANNED_JUDGMENTAL_PATTERNS = [
+    /\byou always\b/i,
+    /\byou never\b/i,
+    /\byou consistently skip\b/i,
+    /\byou tend to always\b/i,
+  ];
+  for (const regex of BANNED_JUDGMENTAL_PATTERNS) {
+    const match = lower.match(regex);
+    if (match) {
+      violations.push({
+        code: "banned_judgmental_pattern",
+        rule: "V2.9 Judgmental Pattern Wording",
+        message: `Judgmental behaviour phrasing detected: "${match[0]}". State observations neutrally without absolute judgements.`,
+        offendingText: match[0],
+      });
+    }
+  }
+
+  // 10. Raw Internal Demand Dimension Names (Layer 4 cross-layer addition)
+  const BANNED_RAW_DEMAND_DIMENSIONS = [
+    "cognitive_demand",
+    "circadian_demand",
+    "emotional_demand",
+    "relational_demand",
+    "political_demand",
+    "visibility_demand",
+    "switch_cost",
+    "arousal_level",
+    "recovery_minutes",
+  ];
+  for (const dim of BANNED_RAW_DEMAND_DIMENSIONS) {
+    if (lower.includes(dim)) {
+      violations.push({
+        code: "banned_raw_demand_dimension",
+        rule: "V2.10 Internal Demand Dimension",
+        message: `Internal demand dimension name detected in copy: "${dim}". Use plain words (e.g. "emotionally demanding meetings").`,
+        offendingText: dim,
+      });
+    }
+  }
+
   return violations;
 }

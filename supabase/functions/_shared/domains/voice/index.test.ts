@@ -160,3 +160,41 @@ Deno.test("Voice: Prompt block assembly includes persona, contract, and evidence
   assertEquals(prompt.includes("hrv_vs_usual"), true);
   assertEquals(prompt.includes("LEADER PREFERENCES"), true);
 });
+
+Deno.test("Voice: Cross-Layer Addition - Judgmental behaviour wording fails validation", () => {
+  const contract: SurfaceContract = { surface: "nudge" };
+
+  const result1 = validateCopy("You always skip the evening practice on travel days.", contract);
+  assertEquals(result1.valid, false);
+  assertEquals(result1.violations.some((v) => v.code === "banned_judgmental_pattern"), true);
+
+  const result2 = validateCopy("You never complete the wrap session after board meetings.", contract);
+  assertEquals(result2.valid, false);
+  assertEquals(result2.violations.some((v) => v.code === "banned_judgmental_pattern"), true);
+
+  const result3 = validateCopy("You consistently skip somatic practices when busy.", contract);
+  assertEquals(result3.valid, false);
+  assertEquals(result3.violations.some((v) => v.code === "banned_judgmental_pattern"), true);
+});
+
+Deno.test("Voice: Cross-Layer Addition - Internal demand dimension names fail validation", () => {
+  const contract: SurfaceContract = { surface: "nudge" };
+  const badTexts = [
+    "High cognitive_demand today requires extra focus.",
+    "Your circadian_demand has been elevated all week.",
+    "Expect high emotional_demand in the 14:00 review.",
+    "Elevated relational_demand across your afternoon calls.",
+    "Notice the switch_cost between these two contexts.",
+    "High arousal_level heading into the pitch.",
+  ];
+
+  for (const text of badTexts) {
+    const result = validateCopy(text, contract);
+    assertEquals(result.valid, false);
+    assertEquals(result.violations.some((v) => v.code === "banned_raw_demand_dimension"), true);
+  }
+
+  // Plain language counterpart passes
+  const goodResult = validateCopy("Days with several emotionally demanding meetings tend to draw more.", contract);
+  assertEquals(goodResult.violations.some((v) => v.code === "banned_raw_demand_dimension"), false);
+});

@@ -38,7 +38,16 @@ export function stepSelectIntervention(params: SelectParams): SelectionResult {
       outcome: "match",
       score: primary.score,
       reasons: primary.reasons,
+      eligibleCandidates: params.ranked.map((r) => ({
+        id: r.candidate.id,
+        score: r.score,
+        relevance: r.subScores ? (r.subScores.capabilityMatch + r.subScores.comboMatch) / 2 : r.score,
+      })),
       rejected: params.rejected,
+      versions: {
+        interventions: "2026-10-23",
+        spine: "spine.v2.20261023",
+      },
     };
   }
 
@@ -55,6 +64,11 @@ export function stepSelectIntervention(params: SelectParams): SelectionResult {
     outcome: "default_set",
     score: 50,
     reasons: ["Fallback to guaranteed default set (slot never empty)"],
+    eligibleCandidates: [],
     rejected: params.rejected,
+    versions: {
+      interventions: "2026-10-23",
+      spine: "spine.v2.20261023",
+    },
   };
 }

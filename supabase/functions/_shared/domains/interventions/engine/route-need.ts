@@ -14,11 +14,19 @@ export type RoutingRule =
   | "RT5_proven_efficacy"
   | "RT6_app_first";
 
+export interface BehaviourPatternInput {
+  situation: string; // e.g. "travel", "evening", or Category A-J e.g. "category_a"
+  isReliablySkipped: boolean;
+  reason?: string;
+}
+
 export interface RouteNeedInput {
   need: InterventionNeed;
   availableGapMinutes: number;
   phase: "pre" | "during" | "post" | "day" | "evening";
+  situation?: string;
   isOwnActionSlotAllocated?: boolean;
+  behaviourPatterns?: BehaviourPatternInput[];
   preconditionFacts?: Record<string, boolean>;
 }
 
@@ -36,6 +44,24 @@ export function routeNeed(input: RouteNeedInput): RoutingDecision {
       rule: "RT6_app_first",
       reason: "App leads: own-action quota for the day already reached",
     };
+  }
+
+  // Layer 4 behaviour_patterns routing: an intervention reliably skipped in this situation routes to own_action (RT5)
+  if (input.behaviourPatterns && input.behaviourPatterns.length > 0) {
+    const skipPattern = input.behaviourPatterns.find(
+      (p) =>
+        p.isReliablySkipped &&
+        (!input.situation ||
+          p.situation.toLowerCase() === input.situation.toLowerCase() ||
+          p.situation.toLowerCase() === input.phase.toLowerCase())
+    );
+    if (skipPattern) {
+      return {
+        route: "own_action",
+        rule: "RT5_proven_efficacy",
+        reason: `behaviour_pattern: app practice reliably skipped in ${skipPattern.situation}; own-action preferred`,
+      };
+    }
   }
 
   // RT2: Moment is inside an item -> Own action (app cannot be used during a meeting)
